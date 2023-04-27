@@ -23,14 +23,23 @@ impl Display for SessionError {
 
 impl Error for SessionError {}
 
+/// A state type representing an unsigned session.
+pub struct Unsigned;
+
+/// A state type representing a signed session.
+pub struct Signed {
+    signature: Vec<u8>
+}
+
 /// Contains properties and functionality of user sessions.
-pub struct Session {
+pub struct Session<SignState> {
     id: String,
     user_id: String,
     // TODO: Roles
     issuer: String,
     issued_at: DateTime<Utc>,
     expires_at: DateTime<Utc>,
+    sign_state: SignState,
 }
 
 /// Contains properties and functionality to build a valid user session.
@@ -102,7 +111,7 @@ impl SessionBuilder {
     }
 
     /// Builds a session based upon the builder's configuration.
-    pub fn build(self) -> Session {
+    pub fn build(self) -> Session<Unsigned> {
         // If user_id is empty here then shit really hit the fan, thus it's only fair to panic.
         assert!(!self.user_id.is_empty());
 
@@ -112,11 +121,19 @@ impl SessionBuilder {
         let issued_at = self.issued_at;
         let expires_at = issued_at.add(self.duration);
 
-        Session{id, user_id, issuer, issued_at, expires_at}
+        Session{id, user_id, issuer, issued_at, expires_at, sign_state: Unsigned}
     }
 }
 
-impl Session {
+impl<SignState> Session<SignState> {
+    /// Returns true if a session is expired.
+    pub fn is_expired(&self) -> bool {
+        self.expires_at < Utc::now()
+    }
+}
+
+/// ethods and associated functions for unsigned sessions.
+impl Session<Unsigned> {
     /// Returns a SessionBuilder with default values.
     /// Requires a user id.
     /// 
@@ -147,14 +164,46 @@ impl Session {
         builder
     }
 
-    /// Returns true if a session is expired.
-    pub fn is_expired(&self) -> bool {
-        self.expires_at < Utc::now()
+    /// Returns false, since it's an unsigned session.
+    pub fn is_signed(&self) -> bool {
+        false
+    }
+
+    /// Returns false, because unsigned sessions are never valid.
+    pub fn is_valid(&self) -> bool {
+        false
+    }
+
+    /// Add a signature to the session. Returns a Session with a Signed session state.
+    pub fn add_signature(self, signature: &[u8]) -> Session<Signed> {
+        let sign_state = Signed { signature: signature.to_owned()};
+        Session {
+            id: self.id,
+            user_id: self.user_id,
+            issuer: self.issuer,
+            issued_at: self.issued_at,
+            expires_at: self.expires_at,
+            sign_state,
+        }
+    }
+}
+
+/// Methods and associated functions for signed sessions.
+impl Session<Signed> {
+    /// Returns true, since this is a signed session.
+    pub fn is_signed(&self) -> bool {
+        true
+    }
+
+    /// Returns the session's signature.
+    pub fn signature(&self) -> &[u8] {
+        &self.sign_state.signature
     }
 
     /// Returns true if a session is valid.
     /// 
     /// A session is considered valid when:
+    /// - it's signed
     /// - it's not expired
     /// - id, user_id and issuer are not empty
     /// - issued_at is in the past
@@ -164,6 +213,13 @@ impl Session {
         !self.user_id.is_empty() &&
         !self.issuer.is_empty() &&
         Utc::now() > self.issued_at
+    }
+}
+
+// Implement the display trait for Session. This is important, because the result will be used for signing sessions.
+impl<SignState> Display for Session<SignState> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}:{}:{}:{}", self.id, self.user_id, self.issuer, self.issued_at, self.expires_at)
     }
 }
 
@@ -180,7 +236,10 @@ mod test {
         assert_eq!(session.id.is_empty(), false);
         assert_eq!(session.user_id, "0000");
         assert_eq!(session.is_expired(), false); 
-        assert_eq!(session.is_valid(), true);  
+        assert_eq!(session.is_valid(), false);
+
+        let session = session.add_signature(b"test signature");
+        assert_eq!(session.is_valid(), true);
     }
 
     #[test]
@@ -205,7 +264,10 @@ mod test {
         assert_eq!(session.issued_at, issued_at);
         assert_eq!(session.expires_at, expires_at);
         assert_eq!(session.is_expired(), false); 
-        assert_eq!(session.is_valid(), true); 
+        assert_eq!(session.is_valid(), false);
+
+        let session = session.add_signature(b"test signature");
+        assert_eq!(session.is_valid(), true);
     }
 
     #[test]
@@ -217,6 +279,9 @@ mod test {
          .build();
 
         assert_eq!(session.is_expired(), true);
+        assert_eq!(session.is_valid(), false);
+
+        let session = session.add_signature(b"test signature");
         assert_eq!(session.is_valid(), false);
     }
 }
