@@ -1,4 +1,7 @@
 //! Provides functionality for user sessions.
+
+pub mod manager;
+
 use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 use std::{default::Default, error::Error, fmt::{Display, self}, ops::Add};
@@ -94,7 +97,7 @@ impl SessionBuilder {
             id: self.id,
             user_id: self.user_id,
             issuer: self.issuer,
-            issued_at: issued_at,
+            issued_at,
             duration: self.duration,
         }
     }
@@ -106,7 +109,7 @@ impl SessionBuilder {
             user_id: self.user_id,
             issuer: self.issuer,
             issued_at: self.issued_at,
-            duration: duration,
+            duration,
         }
     }
 
@@ -129,6 +132,11 @@ impl<SignState> Session<SignState> {
     /// Returns true if a session is expired.
     pub fn is_expired(&self) -> bool {
         self.expires_at < Utc::now()
+    }
+
+    /// Returns the sha256 hash of the session.
+    pub fn hash(&self, nonce: &str) -> String {
+        sha256::digest(format!("{}:{}", self, nonce))
     }
 }
 
@@ -159,9 +167,7 @@ impl Session<Unsigned> {
     ///     .build();
     /// ``` 
     pub fn new(user_id: &str) -> SessionBuilder {
-        let mut builder = SessionBuilder::default();
-        builder.user_id = user_id.to_string();
-        builder
+        SessionBuilder { user_id: user_id.to_string(), ..Default::default() }
     }
 
     /// Returns false, since it's an unsigned session.
