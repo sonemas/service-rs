@@ -1,10 +1,10 @@
 //! Provides a session manager with functionality to manage sessions.
 use std::{cell::RefCell, collections::HashMap};
 
-use chrono::{DateTime, Duration, Utc};
-pub use foundation::key::Key;
-use foundation::key::{KeyError, SigningKey};
+use chrono::{DateTime, Utc, Duration};
 use rand::{distributions::Alphanumeric, Rng};
+
+use crate::foundation::key::{SigningKey, Key, KeyError};
 
 use super::{Session, Signed};
 
@@ -29,7 +29,7 @@ impl SessionData {
 }
 
 /// Contains properties and functionality to manage sessions.
-pub struct Manager {
+pub struct SessionManager {
     key: Box<dyn SigningKey>,
     nonce: String,
     issuer: String,
@@ -60,7 +60,7 @@ impl Default for ManagerBuilder {
     }
 }
 
-impl Manager {
+impl SessionManager {
     /// Returns a ManagerBuilder with default values.
     ///
     /// The default settings are:
@@ -208,8 +208,8 @@ impl ManagerBuilder {
     }
 
     /// Builds a session manager based upon the builder's configuration.
-    pub fn build(self) -> Manager {
-        Manager {
+    pub fn build(self) -> SessionManager {
+        SessionManager {
             key: self.key,
             nonce: self.nonce,
             issuer: self.issuer,
@@ -226,7 +226,7 @@ mod test {
 
     #[test]
     fn it_can_create_a_valid_session_with_defaults() {
-        let session_manager = Manager::new().build();
+        let session_manager = SessionManager::new().build();
         let session = session_manager
             .new_session("0000")
             .expect("should be able to create new session");
@@ -246,7 +246,7 @@ mod test {
         let duration = Duration::hours(2);
         let expires_at = issued_at.add(duration);
 
-        let session_manager = Manager::new()
+        let session_manager = SessionManager::new()
             .with_issuer(&issuer)
             .with_session_duration(duration)
             .build();

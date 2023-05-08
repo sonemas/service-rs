@@ -1,9 +1,11 @@
-use super::{Id, Repository, RepositoryError};
-use crate::User;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
+
+use crate::{foundation::id::Id, domain::user::User};
+
+use super::{UserRepository, UserRepositoryError};
 
 pub struct Memory {
     users: Arc<RwLock<HashMap<Id, User>>>,
@@ -45,11 +47,11 @@ impl Default for Memory {
     }
 }
 
-impl Repository for Memory {
-    fn create(&self, user: &User) -> Result<(), super::RepositoryError> {
+impl UserRepository for Memory {
+    fn create(&self, user: &User) -> Result<(), super::UserRepositoryError> {
         match self.exists(Some(&user.id), Some(&user.email)) {
-            (true, false) => return Err(RepositoryError::DuplicateID),
-            (false, true) => return Err(RepositoryError::DuplicateEmail),
+            (true, false) => return Err(UserRepositoryError::DuplicateID),
+            (false, true) => return Err(UserRepositoryError::DuplicateEmail),
             _ => {}
         }
         self.users
@@ -63,7 +65,7 @@ impl Repository for Memory {
         Ok(())
     }
 
-    fn read(&self) -> Result<Vec<User>, super::RepositoryError> {
+    fn read(&self) -> Result<Vec<User>, super::UserRepositoryError> {
         Ok(Vec::from_iter(
             self.users
                 .read()
@@ -73,28 +75,28 @@ impl Repository for Memory {
         ))
     }
 
-    fn read_by_id(&self, id: Id) -> Result<User, super::RepositoryError> {
+    fn read_by_id(&self, id: Id) -> Result<User, super::UserRepositoryError> {
         match self.users.read().expect("couldn't get user store").get(&id) {
-            None => Err(RepositoryError::NotFound),
+            None => Err(UserRepositoryError::NotFound),
             Some(v) => Ok(v.clone()),
         }
     }
 
-    fn read_by_email(&self, email: &str) -> Result<User, super::RepositoryError> {
+    fn read_by_email(&self, email: &str) -> Result<User, super::UserRepositoryError> {
         match self
             .email_index
             .read()
             .expect("couldn't get email index store")
             .get(email)
         {
-            None => Err(RepositoryError::NotFound),
+            None => Err(UserRepositoryError::NotFound),
             Some(id) => self.read_by_id(id.clone()),
         }
     }
 
-    fn update(&self, user: &User) -> Result<(), super::RepositoryError> {
+    fn update(&self, user: &User) -> Result<(), super::UserRepositoryError> {
         if let (false, _) = self.exists(Some(&user.id), None) {
-            return Err(RepositoryError::NotFound);
+            return Err(UserRepositoryError::NotFound);
         }
         let old_email = self
             .users
@@ -121,9 +123,9 @@ impl Repository for Memory {
         Ok(())
     }
 
-    fn delete(&self, id: Id) -> Result<(), super::RepositoryError> {
+    fn delete(&self, id: Id) -> Result<(), super::UserRepositoryError> {
         if let (false, _) = self.exists(Some(&id), None) {
-            return Err(RepositoryError::NotFound);
+            return Err(UserRepositoryError::NotFound);
         }
         let email = self
             .users
@@ -150,7 +152,6 @@ mod test {
     use chrono::Utc;
 
     use super::*;
-    use crate::User;
 
     #[test]
     fn it_can_crud() {
@@ -182,6 +183,6 @@ mod test {
         assert!(store.delete(Id::from("1234")).is_ok());
         assert!(store
             .read_by_id(Id::from("1234"))
-            .is_err_and(|err| err == RepositoryError::NotFound));
+            .is_err_and(|err| err == UserRepositoryError::NotFound));
     }
 }

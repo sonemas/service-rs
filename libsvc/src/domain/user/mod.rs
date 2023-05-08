@@ -2,12 +2,14 @@
 pub use bcrypt::BcryptError;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{DateTime, Utc};
-use foundation::id::Id;
 use serde::{Deserialize, Serialize};
+
+use crate::foundation::id::Id;
 
 pub mod logic;
 pub mod repository;
 pub mod service;
+pub mod session;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct User {

@@ -1,16 +1,16 @@
 //! Provides functionality for user sessions.
 
-pub mod logic;
 pub mod manager;
 
 use chrono::{DateTime, Duration, Utc};
-use foundation::id::Id;
 use std::{
     default::Default,
     error::Error,
     fmt::{self, Display},
     ops::Add,
 };
+
+use crate::foundation::id::Id;
 
 /// Holds all session related errors.
 #[derive(Debug)]
