@@ -1,6 +1,9 @@
-use std::{collections::HashMap, sync::{Arc, RwLock}};
+use super::{Id, Repository, RepositoryError};
 use crate::User;
-use super::{Repository, RepositoryError, Id};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
 pub struct Memory {
     users: Arc<RwLock<HashMap<Id, User>>>,
@@ -23,13 +26,22 @@ impl Memory {
             None => false,
         };
 
-        let email_index = self.email_index.read().expect("couldn't get email index store");
+        let email_index = self
+            .email_index
+            .read()
+            .expect("couldn't get email index store");
         let email_exists = match email {
             Some(email) => email_index.contains_key(email),
             None => false,
         };
 
         (user_exists, email_exists)
+    }
+}
+
+impl Default for Memory {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -40,26 +52,43 @@ impl Repository for Memory {
             (false, true) => return Err(RepositoryError::DuplicateEmail),
             _ => {}
         }
-        self.users.write().expect("couldn't get user store").insert(user.id.clone(), user.clone());
-        self.email_index.write().expect("couldn't get email index store").insert(user.email.clone(), user.id.clone());
+        self.users
+            .write()
+            .expect("couldn't get user store")
+            .insert(user.id.clone(), user.clone());
+        self.email_index
+            .write()
+            .expect("couldn't get email index store")
+            .insert(user.email.clone(), user.id.clone());
         Ok(())
     }
 
     fn read(&self) -> Result<Vec<User>, super::RepositoryError> {
-        Ok(Vec::from_iter(self.users.read().expect("couldn't get user store").values().cloned()))
+        Ok(Vec::from_iter(
+            self.users
+                .read()
+                .expect("couldn't get user store")
+                .values()
+                .cloned(),
+        ))
     }
 
     fn read_by_id(&self, id: Id) -> Result<User, super::RepositoryError> {
         match self.users.read().expect("couldn't get user store").get(&id) {
-            None => return Err(RepositoryError::NotFound),
-            Some(v) => Ok(v.clone())
+            None => Err(RepositoryError::NotFound),
+            Some(v) => Ok(v.clone()),
         }
     }
 
     fn read_by_email(&self, email: &str) -> Result<User, super::RepositoryError> {
-        match self.email_index.read().expect("couldn't get email index store").get(email) {
-            None => return Err(RepositoryError::NotFound),
-            Some(id) => self.read_by_id(id.clone())
+        match self
+            .email_index
+            .read()
+            .expect("couldn't get email index store")
+            .get(email)
+        {
+            None => Err(RepositoryError::NotFound),
+            Some(id) => self.read_by_id(id.clone()),
         }
     }
 
@@ -67,11 +96,25 @@ impl Repository for Memory {
         if let (false, _) = self.exists(Some(&user.id), None) {
             return Err(RepositoryError::NotFound);
         }
-        let old_email = self.users.read().expect("couldn't get user store").get(&user.id.clone()).unwrap().email.clone();
+        let old_email = self
+            .users
+            .read()
+            .expect("couldn't get user store")
+            .get(&user.id.clone())
+            .unwrap()
+            .email
+            .clone();
 
-        self.users.write().expect("couldn't get user store").entry(user.id.clone()).and_modify(|u| *u = user.clone());
+        self.users
+            .write()
+            .expect("couldn't get user store")
+            .entry(user.id.clone())
+            .and_modify(|u| *u = user.clone());
         if user.email != old_email {
-            let mut email_index = self.email_index.write().expect("couldn't get email index store");
+            let mut email_index = self
+                .email_index
+                .write()
+                .expect("couldn't get email index store");
             email_index.remove(&old_email);
             email_index.insert(user.email.clone(), user.id.clone());
         }
@@ -82,9 +125,22 @@ impl Repository for Memory {
         if let (false, _) = self.exists(Some(&id), None) {
             return Err(RepositoryError::NotFound);
         }
-        let email = self.users.read().expect("couldn't get user store").get(&id).unwrap().email.clone();
-        self.users.write().expect("couldn't get user store").remove(&id);
-        self.email_index.write().expect("couldn't get email index store").remove(&email);
+        let email = self
+            .users
+            .read()
+            .expect("couldn't get user store")
+            .get(&id)
+            .unwrap()
+            .email
+            .clone();
+        self.users
+            .write()
+            .expect("couldn't get user store")
+            .remove(&id);
+        self.email_index
+            .write()
+            .expect("couldn't get email index store")
+            .remove(&email);
         Ok(())
     }
 }
@@ -100,26 +156,32 @@ mod test {
     fn it_can_crud() {
         let store = Memory::new();
         let now = Utc::now();
-        let user = User::new(
-            Id::from("1234"),
-            "test@example.com",
-            "password",
-            now,
-        ).unwrap();
+        let user = User::new(Id::from("1234"), "test@example.com", "password", now).unwrap();
 
         assert!(store.create(&user).is_ok());
 
         assert_eq!(store.read_by_id(Id::from("1234")).unwrap(), user.clone());
-        assert_eq!(store.read_by_email("test@example.com").unwrap(), user.clone());
+        assert_eq!(
+            store.read_by_email("test@example.com").unwrap(),
+            user.clone()
+        );
         assert_eq!(store.read().unwrap(), vec![user.clone()]);
 
         let mut update_user = user.clone();
         update_user.email = "new.email@example.com".to_string();
         assert!(store.update(&update_user).is_ok());
-        assert_eq!(store.read_by_id(Id::from("1234")).unwrap(), update_user.clone());
-        assert_eq!(store.read_by_email("new.email@example.com").unwrap(), update_user.clone());
+        assert_eq!(
+            store.read_by_id(Id::from("1234")).unwrap(),
+            update_user.clone()
+        );
+        assert_eq!(
+            store.read_by_email("new.email@example.com").unwrap(),
+            update_user.clone()
+        );
 
         assert!(store.delete(Id::from("1234")).is_ok());
-        assert!(store.read_by_id(Id::from("1234")).is_err_and(|err| err == RepositoryError::NotFound));
+        assert!(store
+            .read_by_id(Id::from("1234"))
+            .is_err_and(|err| err == RepositoryError::NotFound));
     }
 }

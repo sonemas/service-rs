@@ -1,9 +1,9 @@
 //! Provides functionality for dealing with users.
-use chrono::{DateTime, Utc};
-use bcrypt::{DEFAULT_COST, hash, verify};
 pub use bcrypt::BcryptError;
+use bcrypt::{hash, verify, DEFAULT_COST};
+use chrono::{DateTime, Utc};
 use foundation::id::Id;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub mod logic;
 pub mod repository;
@@ -19,7 +19,12 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(id: Id, email: &str, password: &str, now: DateTime<Utc>) -> Result<Self, BcryptError>  {
+    pub fn new(
+        id: Id,
+        email: &str,
+        password: &str,
+        now: DateTime<Utc>,
+    ) -> Result<Self, BcryptError> {
         let password = hash(password, DEFAULT_COST)?;
         Ok(Self {
             id,

@@ -1,10 +1,16 @@
 //! Provides functionality for user sessions.
 
+pub mod logic;
 pub mod manager;
 
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use foundation::id::Id;
-use std::{default::Default, error::Error, fmt::{Display, self}, ops::Add};
+use std::{
+    default::Default,
+    error::Error,
+    fmt::{self, Display},
+    ops::Add,
+};
 
 /// Holds all session related errors.
 #[derive(Debug)]
@@ -19,7 +25,7 @@ impl Display for SessionError {
         match self {
             SessionError::BuildErr(err) => write!(f, "Couldn't build session: {}", err),
             SessionError::InvalidSession => write!(f, "Session is invalud"),
-            SessionError::ExpiredSession => write!(f, "Session is expired")
+            SessionError::ExpiredSession => write!(f, "Session is expired"),
         }
     }
 }
@@ -31,7 +37,7 @@ pub struct Unsigned;
 
 /// A state type representing a signed session.
 pub struct Signed {
-    signature: Vec<u8>
+    signature: Vec<u8>,
 }
 
 /// Contains properties and functionality of user sessions.
@@ -58,14 +64,14 @@ pub struct SessionBuilder {
 // TODO: Consider using a default issuer and builder option to change.
 impl Default for SessionBuilder {
     fn default() -> Self {
-        Self { 
-            id: Id::new(), 
+        Self {
+            id: Id::new(),
             user_id: "".to_string(),
             issuer: "auth service".to_string(),
             issued_at: Utc::now(),
             duration: Duration::hours(1),
         }
-     }
+    }
 }
 
 impl SessionBuilder {
@@ -124,7 +130,14 @@ impl SessionBuilder {
         let issued_at = self.issued_at;
         let expires_at = issued_at.add(self.duration);
 
-        Session{id, user_id, issuer, issued_at, expires_at, sign_state: Unsigned}
+        Session {
+            id,
+            user_id,
+            issuer,
+            issued_at,
+            expires_at,
+            sign_state: Unsigned,
+        }
     }
 }
 
@@ -140,34 +153,37 @@ impl<SignState> Session<SignState> {
     }
 }
 
-/// ethods and associated functions for unsigned sessions.
+/// Methods and associated functions for unsigned sessions.
 impl Session<Unsigned> {
     /// Returns a SessionBuilder with default values.
     /// Requires a user id.
-    /// 
+    ///
     /// The default settings are:
     /// - issuer: auth service
     /// - id: a random uuid
     /// - issued_at: the current time
     /// - duration: 1 hour
-    /// 
+    ///
     /// The default settings can be overridden with
     /// the builder functions.
-    /// 
+    ///
     /// Example:
     /// ```
     /// use auth::session::Session;
     /// use chrono::{Utc, Duration};
-    /// 
+    ///
     /// let _session = Session::new("1234")
     ///     .with_issuer("Sonemas LLC")
     ///     .with_id("9876")
     ///     .with_duration(Duration::hours(2))
     ///     .issued_at(Utc::now())
     ///     .build();
-    /// ``` 
+    /// ```
     pub fn new(user_id: &str) -> SessionBuilder {
-        SessionBuilder { user_id: user_id.to_string(), ..Default::default() }
+        SessionBuilder {
+            user_id: user_id.to_string(),
+            ..Default::default()
+        }
     }
 
     /// Returns false, since it's an unsigned session.
@@ -182,7 +198,9 @@ impl Session<Unsigned> {
 
     /// Add a signature to the session. Returns a Session with a Signed session state.
     pub fn add_signature(self, signature: &[u8]) -> Session<Signed> {
-        let sign_state = Signed { signature: signature.to_owned()};
+        let sign_state = Signed {
+            signature: signature.to_owned(),
+        };
         Session {
             id: self.id,
             user_id: self.user_id,
@@ -207,24 +225,28 @@ impl Session<Signed> {
     }
 
     /// Returns true if a session is valid.
-    /// 
+    ///
     /// A session is considered valid when:
     /// - it's signed
     /// - it's not expired
     /// - id, user_id and issuer are not empty
     /// - issued_at is in the past
     pub fn is_valid(&self) -> bool {
-        !self.is_expired() && 
-        !self.user_id.is_empty() &&
-        !self.issuer.is_empty() &&
-        Utc::now() > self.issued_at
+        !self.is_expired()
+            && !self.user_id.is_empty()
+            && !self.issuer.is_empty()
+            && Utc::now() > self.issued_at
     }
 }
 
 // Implement the display trait for Session. This is important, because the result will be used for signing sessions.
 impl<SignState> Display for Session<SignState> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}:{}:{}:{}", self.id, self.user_id, self.issuer, self.issued_at, self.expires_at)
+        write!(
+            f,
+            "{}:{}:{}:{}:{}",
+            self.id, self.user_id, self.issuer, self.issued_at, self.expires_at
+        )
     }
 }
 
@@ -237,9 +259,9 @@ mod test {
     #[test]
     fn it_can_create_a_valid_session_with_defaults() {
         let session = Session::new("0000").build();
-        
+
         assert_eq!(session.user_id, "0000");
-        assert_eq!(session.is_expired(), false); 
+        assert_eq!(session.is_expired(), false);
         assert_eq!(session.is_valid(), false);
 
         let session = session.add_signature(b"test signature");
@@ -256,18 +278,18 @@ mod test {
         let expires_at = issued_at.add(duration);
 
         let session = Session::new(&user_id)
-         .with_issuer(&issuer)
-         .with_id(id.clone())
-         .with_duration(duration)
-         .issued_at(issued_at)
-         .build();
+            .with_issuer(&issuer)
+            .with_id(id.clone())
+            .with_duration(duration)
+            .issued_at(issued_at)
+            .build();
 
         assert_eq!(session.id, id);
         assert_eq!(session.user_id, user_id);
         assert_eq!(session.issuer, issuer);
         assert_eq!(session.issued_at, issued_at);
         assert_eq!(session.expires_at, expires_at);
-        assert_eq!(session.is_expired(), false); 
+        assert_eq!(session.is_expired(), false);
         assert_eq!(session.is_valid(), false);
 
         let session = session.add_signature(b"test signature");
@@ -278,9 +300,7 @@ mod test {
     fn it_can_detect_invalid_sessions() {
         let issued_at = Utc::now().sub(Duration::hours(2));
 
-        let session = Session::new("1234")
-         .issued_at(issued_at)
-         .build();
+        let session = Session::new("1234").issued_at(issued_at).build();
 
         assert_eq!(session.is_expired(), true);
         assert_eq!(session.is_valid(), false);

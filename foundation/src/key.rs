@@ -1,9 +1,14 @@
 //! Provides functionality for signing keys.
-use std::{error::Error, fmt, fs::{File, self}, io::{Write, self}};
+use std::{
+    error::Error,
+    fmt,
+    fs::{self, File},
+    io::{self, Write},
+};
 
 use ring::{
-    rand,
-    signature::{self, KeyPair}, error,
+    error, rand,
+    signature::{self, KeyPair},
 };
 
 /// A trait that all signing keys need to implement.
@@ -61,11 +66,13 @@ pub struct Key {
     der_bytes: Vec<u8>,
 }
 
-impl Key{
+impl Key {
     /// Returnes a newly initialized key.
-    pub fn new() -> Result<Self, KeyError>  {
+    pub fn new() -> Result<Self, KeyError> {
         let rng = rand::SystemRandom::new();
-        let der_bytes = signature::Ed25519KeyPair::generate_pkcs8(&rng)?.as_ref().to_owned();
+        let der_bytes = signature::Ed25519KeyPair::generate_pkcs8(&rng)?
+            .as_ref()
+            .to_owned();
 
         Ok(der_bytes.into())
     }
@@ -84,13 +91,15 @@ impl Key{
 
 impl From<&[u8]> for Key {
     fn from(der_bytes: &[u8]) -> Self {
-        Self{der_bytes: der_bytes.to_vec()}
+        Self {
+            der_bytes: der_bytes.to_vec(),
+        }
     }
 }
 
 impl From<Vec<u8>> for Key {
     fn from(der_bytes: Vec<u8>) -> Self {
-        Self{der_bytes}
+        Self { der_bytes }
     }
 }
 
@@ -107,7 +116,7 @@ impl SigningKey for Key {
             Ok(v) => v,
             Err(_) => return false,
         };
-        
+
         let public_key =
             signature::UnparsedPublicKey::new(&signature::ED25519, key_pair.public_key().as_ref());
 
@@ -133,7 +142,9 @@ mod test {
     fn it_can_save_and_load_keys_from_file() {
         const MESSAGE: &[u8] = b"This is a test message";
         let orig_key = Key::new().expect("should be able to create new key");
-        orig_key.save("/tmp/testkey.der").expect("should be able to save key file");
+        orig_key
+            .save("/tmp/testkey.der")
+            .expect("should be able to save key file");
 
         let key = Key::open("/tmp/testkey.der").expect("should be able to load key file");
 

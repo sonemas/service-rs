@@ -1,16 +1,16 @@
-use std::{fmt::Display, error::Error};
 use auth::session::{Session, Signed};
 use chrono::{DateTime, Utc};
 use foundation::id::Id;
+use std::{error::Error, fmt::Display};
 
-use crate::{User, BcryptError};
 pub use crate::repository::RepositoryError;
+use crate::{BcryptError, User};
 
 #[derive(Debug, PartialEq)]
 pub enum LogicError {
     BcryptError(String),
     ValidationError(String),
-    RepositoryError(RepositoryError)
+    RepositoryError(RepositoryError),
 }
 
 impl From<BcryptError> for LogicError {
@@ -40,7 +40,7 @@ impl Error for LogicError {}
 /// Uses options to indicate which fields are updated.
 pub struct Update {
     pub id: Id,
-    pub email: Option<&'static str> ,
+    pub email: Option<&'static str>,
     pub password: Option<&'static str>,
     pub now: DateTime<Utc>,
 }
@@ -48,22 +48,28 @@ pub struct Update {
 /// Business logic that's to be implemented by every BL provider.
 pub trait Logic {
     /// Add a new user to the service.
-    fn create(&self, session: &Session<Signed>, email: &str, password: &str, now: DateTime<Utc>) -> Result<User, LogicError>;
-    
+    fn create(
+        &self,
+        session: &Session<Signed>,
+        email: &str,
+        password: &str,
+        now: DateTime<Utc>,
+    ) -> Result<User, LogicError>;
+
     /// Read users from the service.
     fn read(&self, session: &Session<Signed>) -> Result<Vec<User>, LogicError>;
-    
+
     /// Read a single user by id.
     fn read_by_id(&self, session: &Session<Signed>, id: Id) -> Result<User, LogicError>;
-    
+
     /// Read a single user by email.
     fn read_by_email(&self, session: &Session<Signed>, email: &str) -> Result<User, LogicError>;
-    
+
     /// Update a user with the provided data.
     fn update(&self, session: &Session<Signed>, update: Update) -> Result<(), LogicError>;
-    
+
     /// Delete a user from the service.
-    fn delete(&self,  session: &Session<Signed>, id: Id) -> Result<(), LogicError>;
-    
+    fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), LogicError>;
+
     // TODO: Purge feature.
 }

@@ -4,6 +4,7 @@
         "./user/Cargo.toml",
         "./user/Cargo.toml",
         "./foundation/Cargo.toml",
-        "./user/Cargo.toml"
+        "./user/Cargo.toml",
+        "./auth/Cargo.toml"
     ]
 }

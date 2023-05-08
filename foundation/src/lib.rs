@@ -1,2 +1,2 @@
-pub mod key;
 pub mod id;
+pub mod key;

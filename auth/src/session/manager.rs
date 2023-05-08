@@ -1,9 +1,9 @@
 //! Provides a session manager with functionality to manage sessions.
-use std::{collections::HashMap, cell::RefCell};
+use std::{cell::RefCell, collections::HashMap};
 
-use chrono::{Duration, DateTime, Utc};
-use foundation::key::{SigningKey, KeyError};
+use chrono::{DateTime, Duration, Utc};
 pub use foundation::key::Key;
+use foundation::key::{KeyError, SigningKey};
 use rand::{distributions::Alphanumeric, Rng};
 
 use super::{Session, Signed};
@@ -35,7 +35,7 @@ pub struct Manager {
     issuer: String,
     session_duration: Duration,
     // TODO: Cleaning up expired sessions.
-    issued_sessions: RefCell<HashMap<String, SessionData>>
+    issued_sessions: RefCell<HashMap<String, SessionData>>,
 }
 
 pub struct ManagerBuilder {
@@ -51,43 +51,52 @@ impl Default for ManagerBuilder {
         let nonce = rand_nonce(30);
         let issuer = "auth service".to_string();
         let session_duration = Duration::hours(1);
-        Self { key, nonce, issuer, session_duration }
+        Self {
+            key,
+            nonce,
+            issuer,
+            session_duration,
+        }
     }
 }
 
 impl Manager {
     /// Returns a ManagerBuilder with default values.
-    /// 
+    ///
     /// The default settings are:
     /// - issuer: auth service
     /// - session duration: 1 hour
     /// - nonce: random nonce of 30 characters
     /// - key: newly created key
-    /// 
+    ///
     /// Generating a new key is a safety consideration, because
     /// it would invalidate all sessions if a service would be restarted.
     /// To use a stored key override with the `with_key` builder function.
-    /// 
+    ///
     /// The default settings can be overridden with
     /// the builder functions.
-    /// 
+    ///
     /// Example:
     /// ```
     /// use auth::session::manager::Manager;
     /// use chrono::Duration;
-    /// 
+    ///
     /// let _session_manager = Manager::new()
     ///     .with_issuer("Sonemas LLC")
     ///     .with_session_duration(Duration::hours(2))
     ///     .with_nonce("9876abcd")
     ///     .build();
-    /// ``` 
+    /// ```
     pub fn new() -> ManagerBuilder {
         ManagerBuilder::default()
     }
 
     // Helper function to create new sessions with or without a time of issuing.
-    fn _new_session(&self, user_id: &str, issued_at: Option<DateTime<Utc>>) -> Result<Session<Signed>, KeyError> {
+    fn _new_session(
+        &self,
+        user_id: &str,
+        issued_at: Option<DateTime<Utc>>,
+    ) -> Result<Session<Signed>, KeyError> {
         // Get a session builder.
         let mut builder = Session::new(user_id)
             .with_issuer(&self.issuer)
@@ -102,12 +111,17 @@ impl Manager {
         let session = builder.build();
 
         // Sign the session.
-        let payload = format!{"{}:{}", &session, self.nonce};
+        let payload = format! {"{}:{}", &session, self.nonce};
         let signature = self.key.sign(payload.as_ref())?;
-        
+
         // Store session data.
-        self.issued_sessions.borrow_mut().insert(session.hash(&self.nonce), SessionData{expires_at: session.expires_at});
-        
+        self.issued_sessions.borrow_mut().insert(
+            session.hash(&self.nonce),
+            SessionData {
+                expires_at: session.expires_at,
+            },
+        );
+
         Ok(session.add_signature(&signature))
     }
 
@@ -117,25 +131,33 @@ impl Manager {
     }
 
     /// Returns a new signed session for the provided user with the provided issuing time.
-    pub fn new_session_with_issued_time(&self, user_id: &str, issued_at: DateTime<Utc>) -> Result<Session<Signed>, KeyError> {
+    pub fn new_session_with_issued_time(
+        &self,
+        user_id: &str,
+        issued_at: DateTime<Utc>,
+    ) -> Result<Session<Signed>, KeyError> {
         self._new_session(user_id, Some(issued_at))
     }
 
-    /// Verifies whether a session is: 
-    /// 1) valid 
-    /// 2) issued by the manager 
+    /// Verifies whether a session is:
+    /// 1) valid
+    /// 2) issued by the manager
     /// 3) signed with a valid signature from the manager
     // TODO: Custom errors.
-    pub fn verify_session(&self, session: &Session<Signed>) -> Result<(), ()>{
+    pub fn verify_session(&self, session: &Session<Signed>) -> Result<(), ()> {
         if !session.is_valid() {
             return Err(());
         }
 
-        if !self.issued_sessions.borrow().contains_key(&session.hash(&self.nonce)) {
+        if !self
+            .issued_sessions
+            .borrow()
+            .contains_key(&session.hash(&self.nonce))
+        {
             return Err(());
         }
 
-        let payload = format!{"{}:{}", &session, self.nonce};
+        let payload = format! {"{}:{}", &session, self.nonce};
         if !self.key.has_signed(payload.as_ref(), session.signature()) {
             return Err(());
         }
@@ -181,7 +203,7 @@ impl ManagerBuilder {
             key: self.key,
             nonce: self.nonce,
             issuer: self.issuer,
-            session_duration
+            session_duration,
         }
     }
 
@@ -200,15 +222,17 @@ impl ManagerBuilder {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::ops::{Sub, Add};
+    use std::ops::{Add, Sub};
 
     #[test]
     fn it_can_create_a_valid_session_with_defaults() {
         let session_manager = Manager::new().build();
-        let session = session_manager.new_session("0000").expect("should be able to create new session");
-        
+        let session = session_manager
+            .new_session("0000")
+            .expect("should be able to create new session");
+
         assert_eq!(session.user_id, "0000");
-        assert_eq!(session.is_expired(), false); 
+        assert_eq!(session.is_expired(), false);
         assert_eq!(session.is_valid(), true);
         assert_eq!(session.is_signed(), true);
         assert!(session_manager.verify_session(&session).is_ok());
@@ -227,13 +251,15 @@ mod test {
             .with_session_duration(duration)
             .build();
 
-        let session = session_manager.new_session_with_issued_time(&user_id, issued_at).expect("should be able to create new session");
+        let session = session_manager
+            .new_session_with_issued_time(&user_id, issued_at)
+            .expect("should be able to create new session");
 
         assert_eq!(session.user_id, user_id);
         assert_eq!(session.issuer, issuer);
         assert_eq!(session.issued_at, issued_at);
         assert_eq!(session.expires_at, expires_at);
-        assert_eq!(session.is_expired(), false); 
+        assert_eq!(session.is_expired(), false);
         assert_eq!(session.is_valid(), true);
         assert_eq!(session.is_signed(), true);
         assert!(session_manager.verify_session(&session).is_ok());

@@ -1,10 +1,10 @@
-use std::{fmt::Display, error::Error};
-pub use foundation::id::Id;
 use crate::User;
+pub use foundation::id::Id;
+use std::{error::Error, fmt::Display};
 
 pub mod memory;
 
-/// Repository related errors. 
+/// Repository related errors.
 #[derive(Debug, PartialEq)]
 pub enum RepositoryError {
     NotFound,

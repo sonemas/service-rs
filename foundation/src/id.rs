@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
