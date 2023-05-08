@@ -207,7 +207,6 @@ mod test {
         let session_manager = Manager::new().build();
         let session = session_manager.new_session("0000").expect("should be able to create new session");
         
-        assert_eq!(session.id.is_empty(), false);
         assert_eq!(session.user_id, "0000");
         assert_eq!(session.is_expired(), false); 
         assert_eq!(session.is_valid(), true);
@@ -230,7 +229,6 @@ mod test {
 
         let session = session_manager.new_session_with_issued_time(&user_id, issued_at).expect("should be able to create new session");
 
-        assert!(!session.id.is_empty());
         assert_eq!(session.user_id, user_id);
         assert_eq!(session.issuer, issuer);
         assert_eq!(session.issued_at, issued_at);

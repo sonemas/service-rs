@@ -3,7 +3,7 @@
 pub mod manager;
 
 use chrono::{DateTime, Utc, Duration};
-use uuid::Uuid;
+use foundation::id::Id;
 use std::{default::Default, error::Error, fmt::{Display, self}, ops::Add};
 
 /// Holds all session related errors.
@@ -36,7 +36,7 @@ pub struct Signed {
 
 /// Contains properties and functionality of user sessions.
 pub struct Session<SignState> {
-    id: String,
+    id: Id,
     user_id: String,
     // TODO: Roles
     issuer: String,
@@ -47,7 +47,7 @@ pub struct Session<SignState> {
 
 /// Contains properties and functionality to build a valid user session.
 pub struct SessionBuilder {
-    id: String,
+    id: Id,
     user_id: String,
     issuer: String,
     issued_at: DateTime<Utc>,
@@ -59,7 +59,7 @@ pub struct SessionBuilder {
 impl Default for SessionBuilder {
     fn default() -> Self {
         Self { 
-            id: Uuid::new_v4().to_string(), 
+            id: Id::new(), 
             user_id: "".to_string(),
             issuer: "auth service".to_string(),
             issued_at: Utc::now(),
@@ -70,9 +70,9 @@ impl Default for SessionBuilder {
 
 impl SessionBuilder {
     /// Overrides the default uuid for a session.
-    pub fn with_id(self, id: &str) -> Self {
+    pub fn with_id(self, id: Id) -> Self {
         Self {
-            id: id.to_string(),
+            id,
             user_id: self.user_id,
             issuer: self.issuer,
             issued_at: self.issued_at,
@@ -215,7 +215,6 @@ impl Session<Signed> {
     /// - issued_at is in the past
     pub fn is_valid(&self) -> bool {
         !self.is_expired() && 
-        !self.id.is_empty() &&
         !self.user_id.is_empty() &&
         !self.issuer.is_empty() &&
         Utc::now() > self.issued_at
@@ -239,7 +238,6 @@ mod test {
     fn it_can_create_a_valid_session_with_defaults() {
         let session = Session::new("0000").build();
         
-        assert_eq!(session.id.is_empty(), false);
         assert_eq!(session.user_id, "0000");
         assert_eq!(session.is_expired(), false); 
         assert_eq!(session.is_valid(), false);
@@ -251,7 +249,7 @@ mod test {
     #[test]
     fn it_can_create_a_valid_session_with_custom_values() {
         let issuer = "Sonemas LLC";
-        let id = "9876";
+        let id = Id::from("e295a278-f7c6-4f93-b53e-69187fc2eb79");
         let user_id = "1234";
         let issued_at = Utc::now().sub(Duration::minutes(20));
         let duration = Duration::hours(2);
@@ -259,7 +257,7 @@ mod test {
 
         let session = Session::new(&user_id)
          .with_issuer(&issuer)
-         .with_id(&id)
+         .with_id(id.clone())
          .with_duration(duration)
          .issued_at(issued_at)
          .build();

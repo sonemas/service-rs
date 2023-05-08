@@ -1,9 +1,8 @@
 use std::fmt::Display;
-
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Id(String);
 
 impl Id {
@@ -21,5 +20,11 @@ impl Display for Id {
 impl From<&str> for Id {
     fn from(value: &str) -> Self {
         Id(value.to_string())
+    }
+}
+
+impl Default for Id {
+    fn default() -> Self {
+        Self::new()
     }
 }
