@@ -1,23 +1,23 @@
+use std::sync::{Arc, RwLock};
+
 use chrono::{DateTime, Utc};
 use crate::foundation::id::Id;
 
 use super::{repository::UserRepository, session::{manager::SessionManager, Session, Signed}, logic::{UserLogic, UserLogicError, UserUpdate, AuthenticationLogic}, User};
 
-pub struct UserService<'a> {
-    repo: &'a dyn UserRepository,
-    session_manager: SessionManager,
+pub struct UserService {
+    repo: Arc<RwLock<dyn UserRepository + Send + Sync>>,
 }
 
-impl<'a> UserService<'a> {
-    pub fn new(repo: &'a dyn UserRepository, session_manager: SessionManager) -> Self {
+impl UserService {
+    pub fn new(repo: Arc<RwLock<dyn UserRepository + Send + Sync>>) -> Self {
         Self {
             repo,
-            session_manager,
         }
     }
 }
 
-impl<'a> UserLogic for UserService<'a> {
+impl UserLogic for UserService {
     fn create(
         &self,
         session: &Session<Signed>,
@@ -27,31 +27,32 @@ impl<'a> UserLogic for UserService<'a> {
     ) -> Result<User, UserLogicError> {
         // TODO: Authorization
         let user = User::new(Id::new(), email, password, now)?;
-        self.repo.create(&user)?;
+        // TODO: Error handling instead of unwrap.
+        self.repo.write().unwrap().create(&user)?;
         Ok(user)
     }
 
     fn read(&self, session: &Session<Signed>) -> Result<Vec<User>, UserLogicError> {
         // TODO: Authorization
-        let users = self.repo.read()?;
+        let users = self.repo.read().unwrap().read()?;
         Ok(users)
     }
 
     fn read_by_id(&self, session: &Session<Signed>, id: Id) -> Result<User, UserLogicError> {
         // TODO: Authorization
-        let user = self.repo.read_by_id(id)?;
+        let user = self.repo.read().unwrap().read_by_id(id)?;
         Ok(user)
     }
 
     fn read_by_email(&self, session: &Session<Signed>, email: &str) -> Result<User, UserLogicError> {
         // TODO: Authorization
-        let user = self.repo.read_by_email(email)?;
+        let user = self.repo.read().unwrap().read_by_email(email)?;
         Ok(user)
     }
 
     fn update(&self, session: &Session<Signed>, user_update: UserUpdate) -> Result<(), UserLogicError> {
         // TODO: Authorization
-        let mut user = self.repo.read_by_id(user_update.id)?;
+        let mut user = self.repo.read().unwrap().read_by_id(user_update.id)?;
         if let Some(email) = user_update.email {
             user.email = email.to_string()
         };
@@ -59,25 +60,37 @@ impl<'a> UserLogic for UserService<'a> {
             user.set_password(password)?
         };
         user.date_updated = user_update.now;
-        self.repo.update(&user)?;
+        self.repo.write().unwrap().update(&user)?;
         Ok(())
     }
 
     fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), UserLogicError> {
         // TODO: Authorization
-        self.repo.delete(id)?;
+        self.repo.write().unwrap().delete(id)?;
         Ok(())
     }
 }
 
-impl<'a> AuthenticationLogic for UserService<'a> {
+
+pub struct AuthenticationService {
+    repo: Arc<RwLock<dyn UserRepository + Send + Sync>>,
+    session_manager: SessionManager,
+}
+
+impl AuthenticationService {
+    pub fn new(repo: Arc<RwLock<dyn UserRepository + Send + Sync>>, session_manager: SessionManager) -> Self {
+        Self{ repo, session_manager }
+    }
+}
+
+impl AuthenticationLogic for AuthenticationService {
     // TODO: Change the error type.
     fn authenticate(
         &self,
         login: &str,
         password: &str,
     ) -> Result<Session<Signed>, UserLogicError> {
-        let user = self.repo.read_by_email(login)?;
+        let user = self.repo.read().unwrap().read_by_email(login)?;
 
         match user.validate_password(password) {
             Ok(true) => {},
@@ -93,7 +106,7 @@ impl<'a> AuthenticationLogic for UserService<'a> {
     #[cfg(feature = "registration")]
     fn register(&self, email: &str, password: &str, now: DateTime<Utc>) -> Result<User, UserLogicError> {
         let user = User::new(Id::new(), email, password, now)?;
-        self.repo.create(&user)?;
+        self.repo.write().unwrap().create(&user)?;
         Ok(user)
     }
 }
@@ -106,8 +119,9 @@ mod test {
 
     #[test]
     fn it_can_crud() {
-        let repo = Memory::new();
-        let service = UserService::new(&repo, SessionManager::new().build());
+        let repo = Arc::new(RwLock::new(Memory::new()));
+        let service = UserService::new(repo);
+
         let now = Utc::now();
         let session_manager = SessionManager::new().build();
         let session = session_manager.new_session("1234").unwrap();
@@ -160,13 +174,12 @@ mod test {
 
     #[test]
     fn it_can_authenticate() {
-        let repo = Memory::new();
-        let service = UserService::new(&repo, SessionManager::new().build());
+        let repo = Arc::new(RwLock::new(Memory::new()));
+        let service = AuthenticationService::new(repo, SessionManager::new().build());
         let now = Utc::now();
-        let session_manager = SessionManager::new().build();
-        let session = session_manager.new_session("1234").unwrap();
+        // let session_manager = SessionManager::new().build();
         service
-            .create(&session, "test@example.com", "password", now)
+            .register("test@example.com", "password", now)
             .unwrap();
 
         assert!(service.authenticate("test@example.com", "password").is_ok());

@@ -169,12 +169,12 @@ impl Session<Unsigned> {
     ///
     /// Example:
     /// ```
-    /// use auth::session::Session;
+    /// use libsvc::domain::user::session::Session;
     /// use chrono::{Utc, Duration};
     ///
     /// let _session = Session::new("1234")
     ///     .with_issuer("Sonemas LLC")
-    ///     .with_id("9876")
+    ///     .with_id("9876".into())
     ///     .with_duration(Duration::hours(2))
     ///     .issued_at(Utc::now())
     ///     .build();

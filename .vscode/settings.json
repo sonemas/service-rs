@@ -1,0 +1,9 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./svc/Cargo.toml",
+        "./svc/Cargo.toml",
+        "./svc/Cargo.toml",
+        "./svc/Cargo.toml"
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
+}

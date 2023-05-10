@@ -1,0 +1,11 @@
+POST http://127.0.0.1:3000/user/register HTTP/1.1
+content-type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "testtest",
+    "password_confirm": "testtest"
+}
+
+###
+

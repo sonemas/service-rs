@@ -1,5 +1,5 @@
 //! Provides a session manager with functionality to manage sessions.
-use std::{cell::RefCell, collections::HashMap};
+use std::{collections::HashMap, sync::Mutex};
 
 use chrono::{DateTime, Utc, Duration};
 use rand::{distributions::Alphanumeric, Rng};
@@ -30,29 +30,29 @@ impl SessionData {
 
 /// Contains properties and functionality to manage sessions.
 pub struct SessionManager {
-    key: Box<dyn SigningKey>,
+    key_file: String,
     nonce: String,
     issuer: String,
     session_duration: Duration,
     // TODO: Cleaning up expired sessions.
-    issued_sessions: RefCell<HashMap<String, SessionData>>,
+    issued_sessions: Mutex<HashMap<String, SessionData>>,
 }
 
-pub struct ManagerBuilder {
-    key: Box<dyn SigningKey>,
+pub struct SessionManagerBuilder {
+    key_file: String,
     nonce: String,
     issuer: String,
     session_duration: Duration,
 }
 
-impl Default for ManagerBuilder {
+impl Default for SessionManagerBuilder {
     fn default() -> Self {
-        let key = Box::new(Key::new().unwrap());
+        let key_file = "key.der".to_string();
         let nonce = rand_nonce(30);
         let issuer = "auth service".to_string();
         let session_duration = Duration::hours(1);
         Self {
-            key,
+            key_file,
             nonce,
             issuer,
             session_duration,
@@ -61,7 +61,7 @@ impl Default for ManagerBuilder {
 }
 
 impl SessionManager {
-    /// Returns a ManagerBuilder with default values.
+    /// Returns a SessionManagerBuilder with default values.
     ///
     /// The default settings are:
     /// - issuer: auth service
@@ -78,17 +78,31 @@ impl SessionManager {
     ///
     /// Example:
     /// ```
-    /// use auth::session::manager::Manager;
+    /// use libsvc::domain::user::session::manager::SessionManager;
     /// use chrono::Duration;
     ///
-    /// let _session_manager = Manager::new()
+    /// let _session_manager = SessionManager::new()
     ///     .with_issuer("Sonemas LLC")
     ///     .with_session_duration(Duration::hours(2))
     ///     .with_nonce("9876abcd")
     ///     .build();
     /// ```
-    pub fn new() -> ManagerBuilder {
-        ManagerBuilder::default()
+    pub fn new() -> SessionManagerBuilder {
+        SessionManagerBuilder::default()
+    }
+
+    fn get_signing_key(&self) -> Result<impl SigningKey, KeyError> {
+        match std::path::Path::new(&self.key_file).exists() {
+            true => {
+                let key = Key::open(&self.key_file)?;
+                Ok(key)
+            }
+            false => {
+                let key = Key::new()?;
+                key.save(&self.key_file)?;
+                Ok(key)
+            }
+        } 
     }
 
     // Helper function to create new sessions with or without a time of issuing.
@@ -112,10 +126,11 @@ impl SessionManager {
 
         // Sign the session.
         let payload = format! {"{}:{}", &session, self.nonce};
-        let signature = self.key.sign(payload.as_ref())?;
+        let signature = self.get_signing_key()?.sign(payload.as_ref())?;
 
         // Store session data.
-        self.issued_sessions.borrow_mut().insert(
+        // TODO: Error handling.
+        self.issued_sessions.lock().unwrap().insert(
             session.hash(&self.nonce),
             SessionData {
                 expires_at: session.expires_at,
@@ -151,14 +166,15 @@ impl SessionManager {
 
         if !self
             .issued_sessions
-            .borrow()
+            // TODO: Error handling.
+            .lock().unwrap()
             .contains_key(&session.hash(&self.nonce))
         {
             return Err(());
         }
 
         let payload = format! {"{}:{}", &session, self.nonce};
-        if !self.key.has_signed(payload.as_ref(), session.signature()) {
+        if !self.get_signing_key().unwrap().has_signed(payload.as_ref(), session.signature()) {
             return Err(());
         }
 
@@ -166,21 +182,21 @@ impl SessionManager {
     }
 }
 
-impl ManagerBuilder {
+impl SessionManagerBuilder {
     /// Overrides the default nonce for a session manager.
     pub fn with_nonce(self, nonce: &str) -> Self {
         Self {
             nonce: nonce.to_string(),
-            key: self.key,
+            key_file: self.key_file,
             issuer: self.issuer,
             session_duration: self.session_duration,
         }
     }
 
     /// Overrides the default key for a session manager.
-    pub fn with_key(self, key: Key) -> Self {
+    pub fn with_key_file(self, key_file: &str) -> Self {
         Self {
-            key: Box::new(key),
+            key_file: key_file.to_string(),
             nonce: self.nonce,
             issuer: self.issuer,
             session_duration: self.session_duration,
@@ -190,7 +206,7 @@ impl ManagerBuilder {
     /// Overrides the default issuer for a session manager.
     pub fn with_issuer(self, issuer: &str) -> Self {
         Self {
-            key: self.key,
+            key_file: self.key_file,
             nonce: self.nonce,
             issuer: issuer.to_string(),
             session_duration: self.session_duration,
@@ -200,7 +216,7 @@ impl ManagerBuilder {
     /// Overrides the default session duration for a session manager.
     pub fn with_session_duration(self, session_duration: Duration) -> Self {
         Self {
-            key: self.key,
+            key_file: self.key_file,
             nonce: self.nonce,
             issuer: self.issuer,
             session_duration,
@@ -210,11 +226,11 @@ impl ManagerBuilder {
     /// Builds a session manager based upon the builder's configuration.
     pub fn build(self) -> SessionManager {
         SessionManager {
-            key: self.key,
+            key_file: self.key_file,
             nonce: self.nonce,
             issuer: self.issuer,
             session_duration: self.session_duration,
-            issued_sessions: RefCell::new(HashMap::new()),
+            issued_sessions: Mutex::new(HashMap::new()),
         }
     }
 }

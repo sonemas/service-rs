@@ -6,4 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = { version = "0.4.24", features = ["serde"] }
 libsvc = { path = "../libsvc", features = ["registration"] }
+serde = { version = "1.0.162", features = ["serde_derive"] }
+tokio = { version = "1.28.0", features = ["full"] }
+warp = "0.3.5"
+
+[[bin]]
+name = "svc"
