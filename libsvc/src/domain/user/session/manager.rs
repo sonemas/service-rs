@@ -280,4 +280,23 @@ mod test {
         assert_eq!(session.is_signed(), true);
         assert!(session_manager.verify_session(&session).is_ok());
     }
+
+    #[test]
+    fn it_can_verify_a_restored_session() {
+        let session_manager = SessionManager::new().build();
+        let orig_session = session_manager
+            .new_session("0000")
+            .expect("should be able to create new session");
+
+        assert_eq!(orig_session.user_id, "0000");
+        assert!(!orig_session.is_expired());
+        assert!(orig_session.is_valid());
+        assert!(orig_session.is_signed());
+        assert!(session_manager.verify_session(&orig_session).is_ok());
+
+        let session = Session::restore(orig_session.id, orig_session.user_id, &orig_session.issuer, orig_session.issued_at, orig_session.expires_at, &orig_session.sign_state.signature);
+        assert!(!session.is_expired());
+        assert!(session.is_valid());
+        assert!(session_manager.verify_session(&session).is_ok());
+    }
 }

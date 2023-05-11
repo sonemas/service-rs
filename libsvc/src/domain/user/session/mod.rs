@@ -6,11 +6,11 @@ use chrono::{DateTime, Duration, Utc};
 use std::{
     default::Default,
     error::Error,
-    fmt::{self, Display},
+    fmt::{self, Debug, Display},
     ops::Add,
 };
 
-use crate::foundation::id::Id;
+pub use crate::foundation::id::Id;
 
 /// Holds all session related errors.
 #[derive(Debug)]
@@ -36,6 +36,7 @@ impl Error for SessionError {}
 pub struct Unsigned;
 
 /// A state type representing a signed session.
+#[derive(Clone, PartialEq)]
 pub struct Signed {
     signature: Vec<u8>,
 }
@@ -43,7 +44,7 @@ pub struct Signed {
 /// Contains properties and functionality of user sessions.
 pub struct Session<SignState> {
     id: Id,
-    user_id: String,
+    user_id: String, // TODO: Change to Id.
     // TODO: Roles
     issuer: String,
     issued_at: DateTime<Utc>,
@@ -144,7 +145,7 @@ impl SessionBuilder {
 impl<SignState> Session<SignState> {
     /// Returns true if a session is expired.
     pub fn is_expired(&self) -> bool {
-        self.expires_at < Utc::now()
+        Utc::now() > self.expires_at
     }
 
     /// Returns the sha256 hash of the session.
@@ -183,6 +184,20 @@ impl Session<Unsigned> {
         SessionBuilder {
             user_id: user_id.to_string(),
             ..Default::default()
+        }
+    }
+
+    pub fn restore(id: Id, user_id: String, issuer: &str, issued_at: DateTime<Utc>, expires_at: DateTime<Utc>, signature: &[u8]) -> Session<Signed> {
+        let sign_state = Signed {
+            signature: signature.to_owned(),
+        };
+        Session{
+            id,
+            user_id,
+            issuer: issuer.to_string(), 
+            issued_at,
+            expires_at,
+            sign_state
         }
     }
 
@@ -235,17 +250,43 @@ impl Session<Signed> {
         !self.is_expired()
             && !self.user_id.is_empty()
             && !self.issuer.is_empty()
-            && Utc::now() > self.issued_at
+            && Utc::now() >= self.issued_at
+    }
+
+    pub fn id(&self) -> Id { self.id.clone() }
+    pub fn issued_at(&self) -> DateTime<Utc> { self.issued_at }
+    pub fn expires_at(&self) -> DateTime<Utc> { self.expires_at }
+    pub fn user_id(&self) -> String { self.user_id.clone() }
+    pub fn issuer(&self) -> String { self.issuer.clone() }
+}
+
+impl Clone for Session<Signed> {
+    fn clone(&self) -> Self {
+        Self { id: self.id.clone(), user_id: self.user_id.clone(), issuer: self.issuer.clone(), issued_at: self.issued_at.clone(), expires_at: self.expires_at.clone(), sign_state: self.sign_state.clone() }
+    }
+}
+
+impl PartialEq for Session<Signed> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.user_id == other.user_id && self.issuer == other.issuer && self.issued_at == other.issued_at && self.expires_at == other.expires_at && self.sign_state == other.sign_state
+    }
+}
+
+impl Debug for Session<Signed> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Session").field("id", &self.id).field("user_id", &self.user_id).field("issuer", &self.issuer).field("issued_at", &self.issued_at).field("expires_at", &self.expires_at).field("sign_state", &self.sign_state.signature).finish()
     }
 }
 
 // Implement the display trait for Session. This is important, because the result will be used for signing sessions.
 impl<SignState> Display for Session<SignState> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let issued_at = self.issued_at.format("%Y-%m-%d %H:%M:%S %Z").to_string();
+        let expires_at = self.expires_at.format("%Y-%m-%d %H:%M:%S %Z").to_string();
         write!(
             f,
             "{}:{}:{}:{}:{}",
-            self.id, self.user_id, self.issuer, self.issued_at, self.expires_at
+            self.id, self.user_id, self.issuer, issued_at, expires_at
         )
     }
 }
@@ -307,5 +348,18 @@ mod test {
 
         let session = session.add_signature(b"test signature");
         assert_eq!(session.is_valid(), false);
+    }
+
+    #[test]
+    fn it_can_restore_sessions() {
+        let issued_at = Utc::now();
+        let orig_session = Session::new("1234").issued_at(issued_at).build().add_signature(b"test signature");
+        assert!(!orig_session.is_expired());
+        assert!(orig_session.is_valid());
+
+        let session = Session::restore(orig_session.id.clone(), orig_session.user_id.clone(), &orig_session.issuer.clone(), orig_session.issued_at.clone(), orig_session.expires_at.clone(), &orig_session.sign_state.signature);
+        assert_eq!(session, orig_session);
+        assert!(!session.is_expired());
+        assert!(session.is_valid());
     }
 }

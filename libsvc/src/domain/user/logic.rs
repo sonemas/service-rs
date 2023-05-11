@@ -73,14 +73,16 @@ pub trait UserLogic {
     /// Delete a user from the service.
     fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), UserLogicError>;
 
+    // TODO: Purge feature.
+
     fn authenticate(
         &self,
         login: &str,
         password: &str,
     ) -> Result<Session<Signed>, UserLogicError>;
 
+    fn is_valid_session(&self, session: &Session<Signed>) -> bool;
+
     #[cfg(feature = "registration")]
     fn register(&self, email: &str, password: &str, now: DateTime<Utc>) -> Result<User, UserLogicError>;
-
-    // TODO: Purge feature.
 }

@@ -1,1 +1,2 @@
 - [JWT tokens and warp](https://stackoverflow.com/questions/54988438/how-to-check-the-authorization-header-using-warp)
+- [JWT tokens and actix](https://codevoweb.com/rust-jwt-authentication-with-actix-web/)

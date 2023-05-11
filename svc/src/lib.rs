@@ -7,12 +7,14 @@ pub mod rest;
 #[derive(Clone)]
 pub struct Store {
     pub user_logic: Arc<RwLock<dyn UserLogic + Send + Sync>>,
+    pub jwt_secret: String,
 }
 
 impl Store {
     pub fn new(
-        user_logic: Arc<RwLock<dyn UserLogic + Send + Sync>>) -> Self {
-        Self { user_logic }
+        user_logic: Arc<RwLock<dyn UserLogic + Send + Sync>>,
+        jwt_secret: &str) -> Self {
+        Self { user_logic, jwt_secret: jwt_secret.to_string()  }
     }
 }
 
@@ -34,6 +36,7 @@ mod test {
     
         Store{
             user_logic: user_service.clone(),
+            jwt_secret: "blabla".to_string(),
         }
     }
 

@@ -23,3 +23,6 @@ features = [
 
 [features]
 registration = []
+
+[dev-dependencies]
+libsvc = { path = ".", features = ["registration"] }

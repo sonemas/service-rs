@@ -91,11 +91,17 @@ impl UserLogic for UserService {
             .expect("should be able to create session"))
     }
 
+    fn is_valid_session(&self, session: &Session<Signed>) -> bool {
+        let valid_signature = self.session_manager.verify_session(&session).is_ok();
+        let valid_session = session.is_valid();
+
+        valid_session && valid_signature
+    }
+
     #[cfg(feature = "registration")]
     fn register(&self, email: &str, password: &str, now: DateTime<Utc>) -> Result<User, UserLogicError> {
         let user = User::new(Id::new(), email, password, now)?;
         self.repo.write().unwrap().create(&user)?;
-        println!("{:?}", self.repo.read().unwrap().read()?);
         Ok(user)
     }
 }
@@ -167,10 +173,8 @@ mod test {
         let repo = Arc::new(RwLock::new(Memory::new()));
         let service = UserService::new(repo, Arc::new(SessionManager::new().build()));
         let now = Utc::now();
-        // let session_manager = SessionManager::new().build();
-        service
-            .register("test@example.com", "password", now)
-            .unwrap();
+        
+        service.register("test@example.com", "password", now).unwrap();
 
         assert!(service.authenticate("test@example.com", "password").is_ok());
         assert!(service

@@ -1,5 +1,6 @@
 # Service
 Copyright (c) 2023, Sonemas LLC
+
 The service project provides the core elements for a service written in Rust.
 
 ## License
