@@ -3,16 +3,18 @@ use std::sync::{Arc, RwLock};
 use chrono::{DateTime, Utc};
 use crate::foundation::id::Id;
 
-use super::{repository::UserRepository, session::{manager::SessionManager, Session, Signed}, logic::{UserLogic, UserLogicError, UserUpdate, AuthenticationLogic}, User};
+use super::{repository::UserRepository, session::{manager::SessionManager, Session, Signed}, logic::{UserLogic, UserLogicError, UserUpdate}, User};
 
 pub struct UserService {
     repo: Arc<RwLock<dyn UserRepository + Send + Sync>>,
+    session_manager: Arc<SessionManager>,
 }
 
 impl UserService {
-    pub fn new(repo: Arc<RwLock<dyn UserRepository + Send + Sync>>) -> Self {
+    pub fn new(repo: Arc<RwLock<dyn UserRepository + Send + Sync>>, session_manager: Arc<SessionManager>) -> Self {
         Self {
             repo,
+            session_manager,
         }
     }
 }
@@ -69,21 +71,7 @@ impl UserLogic for UserService {
         self.repo.write().unwrap().delete(id)?;
         Ok(())
     }
-}
 
-
-pub struct AuthenticationService {
-    repo: Arc<RwLock<dyn UserRepository + Send + Sync>>,
-    session_manager: SessionManager,
-}
-
-impl AuthenticationService {
-    pub fn new(repo: Arc<RwLock<dyn UserRepository + Send + Sync>>, session_manager: SessionManager) -> Self {
-        Self{ repo, session_manager }
-    }
-}
-
-impl AuthenticationLogic for AuthenticationService {
     // TODO: Change the error type.
     fn authenticate(
         &self,
@@ -107,9 +95,11 @@ impl AuthenticationLogic for AuthenticationService {
     fn register(&self, email: &str, password: &str, now: DateTime<Utc>) -> Result<User, UserLogicError> {
         let user = User::new(Id::new(), email, password, now)?;
         self.repo.write().unwrap().create(&user)?;
+        println!("{:?}", self.repo.read().unwrap().read()?);
         Ok(user)
     }
 }
+
 
 #[cfg(test)]
 mod test {
@@ -120,7 +110,7 @@ mod test {
     #[test]
     fn it_can_crud() {
         let repo = Arc::new(RwLock::new(Memory::new()));
-        let service = UserService::new(repo);
+        let service = UserService::new(repo, Arc::new(SessionManager::new().build()));
 
         let now = Utc::now();
         let session_manager = SessionManager::new().build();
@@ -175,7 +165,7 @@ mod test {
     #[test]
     fn it_can_authenticate() {
         let repo = Arc::new(RwLock::new(Memory::new()));
-        let service = AuthenticationService::new(repo, SessionManager::new().build());
+        let service = UserService::new(repo, Arc::new(SessionManager::new().build()));
         let now = Utc::now();
         // let session_manager = SessionManager::new().build();
         service

@@ -1,5 +1,5 @@
-POST http://127.0.0.1:3000/user/register HTTP/1.1
-content-type: application/json
+POST http://127.0.0.1:3000/v1/user/register HTTP/1.1
+Content-Type: application/json
 
 {
     "email": "test@example.com",
@@ -9,3 +9,6 @@ content-type: application/json
 
 ###
 
+GET http://127.0.0.1:3000/v1/user/authenticate HTTP/1.1
+Content-Type: application/json
+Authorization: Basic test@example.com:testtest
