@@ -5,7 +5,7 @@ use jsonwebtoken::{encode, Header, EncodingKey};
 use libsvc::domain::user::{User, session::{Session, Signed}};
 use serde::{Deserialize, Serialize};
 
-use crate::{Store, rest::{api::ApiError, jwt::{TokenClaims, JwtMiddleware}}};
+use crate::{Store, rest::{api::ApiError, middleware::{jwt_auth::{TokenClaims, JwtMiddleware}, basic_auth::BasicAuthMiddleware}}};
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
@@ -29,39 +29,9 @@ pub async fn post_register(store: Data<Store>, request: Json<RegisterRequest>) -
 pub struct AuthenticationResponse{token: String}
 
 #[get("/v1/user/authenticate")]
-pub async fn get_authentication(store: Data<Store>, request: HttpRequest) -> Result<Json<AuthenticationResponse>, ApiError> {
-    // TODO: Check if there is a less verbose way to get the credentials.
-    // Get the credentials
-    let credentials = match request.headers().get(header::AUTHORIZATION) {
-        Some(authorization) => {
-            match authorization.to_str() {
-                Ok(authorization) => match authorization.strip_prefix("Basic ") {
-                    Some(encoded) => match base64::prelude::BASE64_STANDARD.decode(encoded) {
-                        Ok(bytes) => match String::from_utf8(bytes) {
-                            Ok(credentials) => credentials,
-                            Err(err) => return Err(ApiError::Other(err.to_string()))
-                        }
-                        Err(err) => return Err(ApiError::Other(err.to_string()))
-                    }
-                    None => return Err(ApiError::InvalidRequest("Basic auth credentials missing in authorization header".to_string())),
-                }
-                Err(err) => return Err(ApiError::Other(err.to_string()))
-            }
-            
-        },
-        None => return Err(ApiError::InvalidRequest("Basic auth credentials missing in authorization header".to_string()))
-    };
-
-    // Split the credentials into login and password.
-    let credentials: Vec<&str> = credentials.split(":").collect();
-    if credentials.len() != 2 {
-        return Err(ApiError::InvalidRequest("Basic auth credentials should be the base64 value of username:passsword".to_string()));
-    }
-
-    let session = match store.user_logic.read() {
-        Ok(store) => store.authenticate(&credentials[0], &credentials[1])?,
-        Err(err) => return Err(ApiError::Other(err.to_string()))
-    };
+pub async fn get_authentication(store: Data<Store>, raw: HttpRequest,_: BasicAuthMiddleware) -> Result<Json<AuthenticationResponse>, ApiError> {
+    let ext = raw.extensions();
+    let session = ext.get::<Session<Signed>>().unwrap();
 
     let iat = session.issued_at().timestamp();
     let exp = session.expires_at().timestamp();
@@ -88,7 +58,7 @@ pub async fn get_authentication(store: Data<Store>, request: HttpRequest) -> Res
 }
 
 #[get("/v1/user/test")]
-pub async fn get_test(raw: HttpRequest, store: Data<Store>,_: JwtMiddleware) -> Result<Json<String>, ApiError> {
+pub async fn get_test(store: Data<Store>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<String>, ApiError> {
     let ext = raw.extensions();
     let session = ext.get::<Session<Signed>>().unwrap();
     Ok(Json(session.user_id()))

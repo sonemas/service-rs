@@ -2,18 +2,15 @@ use core::fmt;
 use std::future::{ready, Ready};
 use std::time::{UNIX_EPOCH, Duration};
 
-use actix_web::error::ErrorUnauthorized;
-use actix_web::web::Json;
+use actix_web::error::{ErrorUnauthorized, ErrorBadRequest};
 use actix_web::{dev::Payload, Error as ActixWebError};
 use actix_web::{http, web, FromRequest, HttpMessage, HttpRequest};
-use chrono::{Utc, TimeZone, DateTime};
+use chrono::{Utc, DateTime};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use libsvc::domain::user::session::{Session, Signed, Id};
 use serde::{Serialize, Deserialize};
 
 use crate::Store;
-
-use super::api::{ApiError, ErrorResponse};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TokenClaims {
@@ -44,7 +41,7 @@ impl FromRequest for JwtMiddleware {
 
         // Return an error if there is no token.
         if token.is_none() {
-            return ready(Err(ErrorUnauthorized("no token")));
+            return ready(Err(ErrorBadRequest("no token")));
         }
 
         // Get the claims from the token.
@@ -55,7 +52,7 @@ impl FromRequest for JwtMiddleware {
         ) {
             Ok(c) => c.claims,
             Err(_) => {
-                return ready(Err(ErrorUnauthorized("invalid token")));
+                return ready(Err(ErrorBadRequest("invalid token")));
             }
         };
 
