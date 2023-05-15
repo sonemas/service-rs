@@ -31,13 +31,13 @@ impl FromRequest for JwtMiddleware {
     type Future = Ready<Result<Self, Self::Error>>;
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         // Get the store.
-        let store = req.app_data::<web::Data<Store>>().unwrap();
+        let store = req.app_data::<web::Data<Store>>().expect("Couldn't get store");
 
         // Get the token from the request.
         let token = req
             .headers()
                 .get(http::header::AUTHORIZATION)
-                .map(|h| h.to_str().unwrap().split_at(7).1.to_string());
+                .map(|h| h.to_str().expect("Couldn't get header string").split_at(7).1.to_string());
 
         // Return an error if there is no token.
         if token.is_none() {
@@ -46,7 +46,7 @@ impl FromRequest for JwtMiddleware {
 
         // Get the claims from the token.
         let claims = match decode::<TokenClaims>(
-            &token.unwrap(),
+            &token.expect("Couldn't get value"),
             &DecodingKey::from_secret(store.jwt_secret.as_ref()),
             &Validation::default(),
         ) {
@@ -57,10 +57,10 @@ impl FromRequest for JwtMiddleware {
         };
 
         // Restore the session.
-        let issued_at = DateTime::<Utc>::from(UNIX_EPOCH + Duration::from_secs(claims.iat.try_into().unwrap()));
-        let expires_at = DateTime::<Utc>::from(UNIX_EPOCH + Duration::from_secs(claims.exp.try_into().unwrap()));
+        let issued_at = DateTime::<Utc>::from(UNIX_EPOCH + Duration::from_secs(claims.iat.try_into().expect("Couldn't convert datetime")));
+        let expires_at = DateTime::<Utc>::from(UNIX_EPOCH + Duration::from_secs(claims.exp.try_into().expect("Couldn't convert datetime")));
         let session = Session::restore(claims.id, claims.sub, &claims.iss, issued_at, expires_at, &claims.sig);
-        if !store.user_logic.read().unwrap().is_valid_session(&session) { return ready(Err(ErrorUnauthorized("invalid session"))); }
+        if !store.user_logic.read().expect("Couldn't get user logic").is_valid_session(&session) { return ready(Err(ErrorUnauthorized("invalid session"))); }
         
         // Add the session to the request, so that handlers can access it.
         req.extensions_mut()

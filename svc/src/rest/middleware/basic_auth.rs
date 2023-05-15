@@ -17,20 +17,20 @@ impl FromRequest for BasicAuthMiddleware {
     type Future = Ready<Result<Self, Self::Error>>;
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         // Get the store.
-        let store = req.app_data::<web::Data<Store>>().unwrap();
+        let store = req.app_data::<web::Data<Store>>().expect("Couldn't get store");
 
         // Get the credentials from the request.
         let encoded = req
             .headers()
                 .get(http::header::AUTHORIZATION)
-                .map(|h| h.to_str().unwrap().split_at(6).1.to_string());
-        println!("{:?}", encoded);
+                .map(|h| h.to_str().expect("Couldn't get header string").split_at(6).1.to_string());
+
         // Return an error if there is no token.
         if encoded.is_none() {
             return ready(Err(ErrorBadRequest("no token")));
         }
                     
-        let credentials = match base64::prelude::BASE64_STANDARD.decode(encoded.unwrap()) {
+        let credentials = match base64::prelude::BASE64_STANDARD.decode(encoded.expect("Couldn't get value")) {
             Ok(bytes) => match String::from_utf8(bytes) {
                 Ok(credentials) => credentials,
                 Err(err) => return ready(Err(ErrorBadRequest(err.to_string()))),

@@ -43,7 +43,7 @@ mod test {
     #[test]
     fn store_can_register_and_authenticate() {
         let store = prepare_store();
-        assert!(store.user_logic.write().unwrap().register("test@example.com", "testtest", Utc::now()).is_ok());
-        assert!(store.user_logic.read().unwrap().authenticate("test@example.com", "testtest").is_ok());
+        assert!(store.user_logic.write().expect("Should be able to get user logic").register("test@example.com", "testtest", Utc::now()).is_ok());
+        assert!(store.user_logic.read().expect("Shoudl be able to get user logic").authenticate("test@example.com", "testtest").is_ok());
     }
 }

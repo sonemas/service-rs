@@ -31,7 +31,7 @@ pub struct AuthenticationResponse{token: String}
 #[get("/v1/user/authenticate")]
 pub async fn get_authentication(store: Data<Store>, raw: HttpRequest,_: BasicAuthMiddleware) -> Result<Json<AuthenticationResponse>, ApiError> {
     let ext = raw.extensions();
-    let session = ext.get::<Session<Signed>>().unwrap();
+    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
 
     let iat = session.issued_at().timestamp();
     let exp = session.expires_at().timestamp();
@@ -52,14 +52,13 @@ pub async fn get_authentication(store: Data<Store>, raw: HttpRequest,_: BasicAut
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(store.jwt_secret.as_ref()),
-    )
-    .unwrap();
+    ).expect("Couldn't encode token");
     Ok(Json(AuthenticationResponse{token}))
 }
 
 #[get("/v1/user/test")]
 pub async fn get_test(store: Data<Store>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<String>, ApiError> {
     let ext = raw.extensions();
-    let session = ext.get::<Session<Signed>>().unwrap();
+    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
     Ok(Json(session.user_id()))
 }

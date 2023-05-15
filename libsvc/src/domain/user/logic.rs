@@ -1,6 +1,6 @@
 use bcrypt::BcryptError;
 use chrono::{DateTime, Utc};
-use std::{error::Error, fmt::Display};
+use std::{error::Error, fmt::Display, sync::PoisonError};
 
 use crate::foundation::id::Id;
 
@@ -9,6 +9,7 @@ use super::{repository::UserRepositoryError, session::{Session, Signed}, User};
 #[derive(Debug, PartialEq)]
 pub enum UserLogicError {
     BcryptError(String),
+    PoisonError(String),
     ValidationError(String),
     UserRepositoryError(UserRepositoryError),
     Unauthorized,
@@ -26,10 +27,17 @@ impl From<UserRepositoryError> for UserLogicError {
     }
 }
 
+impl<T> From<PoisonError<T>> for UserLogicError {
+    fn from(value: PoisonError<T>) -> Self {
+        UserLogicError::PoisonError(value.to_string())
+    }
+}
+
 impl Display for UserLogicError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UserLogicError::BcryptError(err) => write!(f, "{}", err),
+            UserLogicError::PoisonError(err) => write!(f, "{}", err),
             UserLogicError::ValidationError(err) => write!(f, "{}", err),
             UserLogicError::UserRepositoryError(err) => write!(f, "{}", err),
             UserLogicError::Unauthorized => write!(f, "Unauthorized"),

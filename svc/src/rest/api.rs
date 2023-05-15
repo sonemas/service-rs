@@ -37,7 +37,7 @@ impl ResponseError for ApiError {
 
         HttpResponse::build(self.status_code())
             .insert_header(ContentType::json())
-            .body(serde_json::to_string(&body).unwrap())
+            .body(serde_json::to_string(&body).expect("Couldn't create JSON body"))
     }
 }
 
@@ -52,7 +52,8 @@ impl From<UserLogicError> for ApiError {
                 UserRepositoryError::DuplicateEmail => ApiError::InvalidRequest(err.to_string()),
                 UserRepositoryError::DuplicateID => ApiError::InvalidRequest(err.to_string()),
                 UserRepositoryError::Other(err) => ApiError::Other(err.to_string()),
-            }
+            },
+            UserLogicError::PoisonError(err) => ApiError::Other(err),
         }
     }
 }

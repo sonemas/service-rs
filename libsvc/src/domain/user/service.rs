@@ -29,32 +29,31 @@ impl UserLogic for UserService {
     ) -> Result<User, UserLogicError> {
         // TODO: Authorization
         let user = User::new(Id::new(), email, password, now)?;
-        // TODO: Error handling instead of unwrap.
-        self.repo.write().unwrap().create(&user)?;
+        self.repo.write()?.create(&user)?;
         Ok(user)
     }
 
     fn read(&self, session: &Session<Signed>) -> Result<Vec<User>, UserLogicError> {
         // TODO: Authorization
-        let users = self.repo.read().unwrap().read()?;
+        let users = self.repo.read()?.read()?;
         Ok(users)
     }
 
     fn read_by_id(&self, session: &Session<Signed>, id: Id) -> Result<User, UserLogicError> {
         // TODO: Authorization
-        let user = self.repo.read().unwrap().read_by_id(id)?;
+        let user = self.repo.read()?.read_by_id(id)?;
         Ok(user)
     }
 
     fn read_by_email(&self, session: &Session<Signed>, email: &str) -> Result<User, UserLogicError> {
         // TODO: Authorization
-        let user = self.repo.read().unwrap().read_by_email(email)?;
+        let user = self.repo.read()?.read_by_email(email)?;
         Ok(user)
     }
 
     fn update(&self, session: &Session<Signed>, user_update: UserUpdate) -> Result<(), UserLogicError> {
         // TODO: Authorization
-        let mut user = self.repo.read().unwrap().read_by_id(user_update.id)?;
+        let mut user = self.repo.read()?.read_by_id(user_update.id)?;
         if let Some(email) = user_update.email {
             user.email = email.to_string()
         };
@@ -62,23 +61,22 @@ impl UserLogic for UserService {
             user.set_password(password)?
         };
         user.date_updated = user_update.now;
-        self.repo.write().unwrap().update(&user)?;
+        self.repo.write()?.update(&user)?;
         Ok(())
     }
 
     fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), UserLogicError> {
         // TODO: Authorization
-        self.repo.write().unwrap().delete(id)?;
+        self.repo.write()?.delete(id)?;
         Ok(())
     }
 
-    // TODO: Change the error type.
     fn authenticate(
         &self,
         login: &str,
         password: &str,
     ) -> Result<Session<Signed>, UserLogicError> {
-        let user = self.repo.read().unwrap().read_by_email(login)?;
+        let user = self.repo.read()?.read_by_email(login)?;
 
         match user.validate_password(password) {
             Ok(true) => {},
@@ -101,7 +99,7 @@ impl UserLogic for UserService {
     #[cfg(feature = "registration")]
     fn register(&self, email: &str, password: &str, now: DateTime<Utc>) -> Result<User, UserLogicError> {
         let user = User::new(Id::new(), email, password, now)?;
-        self.repo.write().unwrap().create(&user)?;
+        self.repo.write()?.create(&user)?;
         Ok(user)
     }
 }
@@ -120,24 +118,24 @@ mod test {
 
         let now = Utc::now();
         let session_manager = SessionManager::new().build();
-        let session = session_manager.new_session("1234").unwrap();
+        let session = session_manager.new_session("1234").expect("Should be able to create session");
 
         let user = service
             .create(&session, "test@example.com", "password", now)
-            .unwrap();
+            .expect("Should be able to create user");
         let mut expected = user.clone();
         expected.email = "test@example.com".to_string();
         assert_eq!(user, expected);
 
         assert_eq!(
-            service.read_by_id(&session, user.id.clone()).unwrap(),
+            service.read_by_id(&session, user.id.clone()).expect("Should be able to read by id"),
             user.clone()
         );
         assert_eq!(
-            service.read_by_email(&session, "test@example.com").unwrap(),
+            service.read_by_email(&session, "test@example.com").expect("Should be able to read by email"),
             user.clone()
         );
-        assert_eq!(service.read(&session).unwrap(), vec![user.clone()]);
+        assert_eq!(service.read(&session).expect("should be able to read"), vec![user.clone()]);
 
         assert!(service
             .update(
@@ -152,13 +150,13 @@ mod test {
             .is_ok());
         expected.email = "new.email@example.com".to_string();
         assert_eq!(
-            service.read_by_id(&session, user.id.clone()).unwrap(),
+            service.read_by_id(&session, user.id.clone()).expect("Should be able to read by id"),
             expected.clone()
         );
         assert_eq!(
             service
                 .read_by_email(&session, "new.email@example.com")
-                .unwrap(),
+                .expect("Should be able to read by email"),
             expected.clone()
         );
 
@@ -174,7 +172,7 @@ mod test {
         let service = UserService::new(repo, Arc::new(SessionManager::new().build()));
         let now = Utc::now();
         
-        service.register("test@example.com", "password", now).unwrap();
+        service.register("test@example.com", "password", now).expect("Should be able to register");
 
         assert!(service.authenticate("test@example.com", "password").is_ok());
         assert!(service

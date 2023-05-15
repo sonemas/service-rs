@@ -1,5 +1,5 @@
 //! Provides a session manager with functionality to manage sessions.
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::{Mutex, PoisonError}, fmt::Display, error::Error};
 
 use chrono::{DateTime, Utc, Duration};
 use rand::{distributions::Alphanumeric, Rng};
@@ -27,6 +27,41 @@ impl SessionData {
         Utc::now() > self.expires_at
     }
 }
+
+#[derive(Debug)]
+pub enum SessionError {
+    KeyError(KeyError),
+    PoisonError(String),
+    InvalidSession,
+    UnknownSession,
+    InvalidSignature,
+}
+
+impl From<KeyError> for SessionError {
+    fn from(value: KeyError) -> Self {
+        SessionError::KeyError(value)
+    }
+}
+
+impl<T> From<PoisonError<T>> for SessionError {
+    fn from(value: PoisonError<T>) -> Self {
+        SessionError::PoisonError(value.to_string())
+    }
+}
+
+impl Display for SessionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SessionError::KeyError(err) => write!(f, "{}", err),
+            SessionError::PoisonError(err) => write!(f, "{}", err),
+            SessionError::InvalidSession => write!(f, "invalid session"),
+            SessionError::UnknownSession => write!(f, "unknown session"),
+            SessionError::InvalidSignature => write!(f, "invalid signature"),
+        }
+    }
+}
+
+impl Error for SessionError {}
 
 /// Contains properties and functionality to manage sessions.
 pub struct SessionManager {
@@ -110,7 +145,7 @@ impl SessionManager {
         &self,
         user_id: &str,
         issued_at: Option<DateTime<Utc>>,
-    ) -> Result<Session<Signed>, KeyError> {
+    ) -> Result<Session<Signed>, SessionError> {
         // Get a session builder.
         let mut builder = Session::new(user_id)
             .with_issuer(&self.issuer)
@@ -129,8 +164,7 @@ impl SessionManager {
         let signature = self.get_signing_key()?.sign(payload.as_ref())?;
 
         // Store session data.
-        // TODO: Error handling.
-        self.issued_sessions.lock().unwrap().insert(
+        self.issued_sessions.lock()?.insert(
             session.hash(&self.nonce),
             SessionData {
                 expires_at: session.expires_at,
@@ -141,7 +175,7 @@ impl SessionManager {
     }
 
     /// Returns a new signed session for the provided user.
-    pub fn new_session(&self, user_id: &str) -> Result<Session<Signed>, KeyError> {
+    pub fn new_session(&self, user_id: &str) -> Result<Session<Signed>, SessionError> {
         self._new_session(user_id, None)
     }
 
@@ -150,7 +184,7 @@ impl SessionManager {
         &self,
         user_id: &str,
         issued_at: DateTime<Utc>,
-    ) -> Result<Session<Signed>, KeyError> {
+    ) -> Result<Session<Signed>, SessionError> {
         self._new_session(user_id, Some(issued_at))
     }
 
@@ -158,24 +192,22 @@ impl SessionManager {
     /// 1) valid
     /// 2) issued by the manager
     /// 3) signed with a valid signature from the manager
-    // TODO: Custom errors.
-    pub fn verify_session(&self, session: &Session<Signed>) -> Result<(), ()> {
+    pub fn verify_session(&self, session: &Session<Signed>) -> Result<(), SessionError> {
         if !session.is_valid() {
-            return Err(());
+            return Err(SessionError::InvalidSession);
         }
 
         if !self
             .issued_sessions
-            // TODO: Error handling.
-            .lock().unwrap()
+            .lock()?
             .contains_key(&session.hash(&self.nonce))
         {
-            return Err(());
+            return Err(SessionError::UnknownSession);
         }
 
         let payload = format! {"{}:{}", &session, self.nonce};
-        if !self.get_signing_key().unwrap().has_signed(payload.as_ref(), session.signature()) {
-            return Err(());
+        if !self.get_signing_key()?.has_signed(payload.as_ref(), session.signature()) {
+            return Err(SessionError::InvalidSignature);
         }
 
         Ok(())
