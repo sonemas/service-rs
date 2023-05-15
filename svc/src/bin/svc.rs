@@ -31,7 +31,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(store.clone()))
             .service(user_handlers::post_register)
             .service(user_handlers::get_authentication)
-            .service(user_handlers::get_test)
+            .service(user_handlers::post_create)
+            .service(user_handlers::get_read)
     })
     .bind(("0.0.0.0", 3000))?
     .run()

@@ -1,3 +1,5 @@
+use std::sync::PoisonError;
+
 use actix_web::{middleware::Logger, App, ResponseError, http::{StatusCode, header::ContentType}, web::Json, HttpResponse, body::BoxBody, dev::Response};
 use libsvc::domain::user::{logic::UserLogicError, repository::UserRepositoryError};
 use serde::Serialize;
@@ -55,5 +57,11 @@ impl From<UserLogicError> for ApiError {
             },
             UserLogicError::PoisonError(err) => ApiError::Other(err),
         }
+    }
+}
+
+impl<T> From<PoisonError<T>> for ApiError {
+    fn from(value: PoisonError<T>) -> Self {
+        ApiError::Other(value.to_string())
     }
 }

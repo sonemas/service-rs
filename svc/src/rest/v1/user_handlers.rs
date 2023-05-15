@@ -1,11 +1,32 @@
-use actix_web::{get, post, put, delete, Responder, HttpResponse, web::{Data, Json}, HttpRequest, http::header, HttpMessage};
-use base64::{engine::general_purpose, Engine};
+use actix_web::{get, post, put, delete, web::{Data, Json}, HttpRequest, HttpMessage};
 use chrono::Utc;
 use jsonwebtoken::{encode, Header, EncodingKey};
 use libsvc::domain::user::{User, session::{Session, Signed}};
 use serde::{Deserialize, Serialize};
 
 use crate::{Store, rest::{api::ApiError, middleware::{jwt_auth::{TokenClaims, JwtMiddleware}, basic_auth::BasicAuthMiddleware}}};
+
+#[derive(Deserialize)]
+pub struct CreateRequest {
+    email: String,
+    password: String,
+    password_confirm: String,
+}
+
+// TODO: Request tracing containing now and tracing values.
+#[post("/v1/user")]
+pub async fn post_create(store: Data<Store>, req: Json<CreateRequest>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<User>, ApiError> {
+    let ext = raw.extensions();
+    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
+    Ok(Json(store.user_logic.write()?.create(&session, &req.email, &req.password, Utc::now())?))
+}
+
+#[get("/v1/user")]
+pub async fn get_read(store: Data<Store>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<Vec<User>>, ApiError> {
+    let ext = raw.extensions();
+    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
+    Ok(Json(store.user_logic.read()?.read(session)?))
+}
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
@@ -16,13 +37,7 @@ pub struct RegisterRequest {
 
 #[post("/v1/user/register")]
 pub async fn post_register(store: Data<Store>, request: Json<RegisterRequest>) -> Result<Json<User>, ApiError> {
-    let store = match store.user_logic.write() {
-        Ok(store) => store,
-        Err(err) => return Err(ApiError::Other(err.to_string()))
-    };
-
-    let user = store.register(&request.email, &request.password, Utc::now())?;
-    Ok(Json(user))
+    Ok(Json(store.user_logic.write()?.register(&request.email, &request.password, Utc::now())?))
 }
 
 #[derive(Serialize)]
@@ -56,9 +71,9 @@ pub async fn get_authentication(store: Data<Store>, raw: HttpRequest,_: BasicAut
     Ok(Json(AuthenticationResponse{token}))
 }
 
-#[get("/v1/user/test")]
-pub async fn get_test(store: Data<Store>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<String>, ApiError> {
-    let ext = raw.extensions();
-    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
-    Ok(Json(session.user_id()))
-}
+// #[get("/v1/user/test")]
+// pub async fn get_test(store: Data<Store>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<String>, ApiError> {
+//     let ext = raw.extensions();
+//     let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
+//     Ok(Json(session.user_id()))
+// }
