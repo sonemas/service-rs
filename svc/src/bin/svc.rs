@@ -1,5 +1,6 @@
 use std::{sync::{Arc, RwLock}};
 use actix_cors::Cors;
+use futures::future;
 use libsvc::domain::user::{service::UserService, session::{manager::SessionManager}, repository::memory::Memory};
 use actix_web::{HttpServer, App, web::Data, middleware::Logger, http::header};
 use svc::{Store, rest::v1};
@@ -11,8 +12,21 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let store = prepare_store();
+    let debug_store = store.clone();
+    let api_store = store.clone();
 
-    HttpServer::new(move || {
+    let debug = HttpServer::new(move || {
+        let logger = Logger::default();
+
+        App::new()
+            .wrap(logger)
+            .app_data(Data::new(debug_store.clone()))
+            .service(v1::debug_handlers::api())
+    })
+    .bind(("0.0.0.0", 3999))?
+    .run();
+
+    let api = HttpServer::new(move || {
         let logger = Logger::default();
         let cors = Cors::default()
             //.allowed_origin("*")
@@ -28,12 +42,14 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(logger)
             .wrap(cors)
-            .app_data(Data::new(store.clone()))
+            .app_data(Data::new(api_store.clone()))
             .service(v1::api())
     })
     .bind(("0.0.0.0", 3000))?
-    .run()
-    .await
+    .run();
+
+    let _ = future::try_join(debug, api).await;
+    Ok(())
 }
 
 pub fn prepare_store() -> Store {
