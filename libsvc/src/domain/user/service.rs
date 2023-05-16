@@ -51,18 +51,18 @@ impl UserLogic for UserService {
         Ok(user)
     }
 
-    fn update(&self, session: &Session<Signed>, user_update: UserUpdate) -> Result<(), UserLogicError> {
+    fn update(&self, session: &Session<Signed>, user_update: UserUpdate) -> Result<User, UserLogicError> {
         // TODO: Authorization
         let mut user = self.repo.read()?.read_by_id(user_update.id)?;
         if let Some(email) = user_update.email {
             user.email = email.to_string()
         };
         if let Some(password) = user_update.password {
-            user.set_password(password)?
+            user.set_password(&password)?
         };
         user.date_updated = user_update.now;
         self.repo.write()?.update(&user)?;
-        Ok(())
+        Ok(user)
     }
 
     fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), UserLogicError> {
@@ -142,7 +142,7 @@ mod test {
                 &session,
                 UserUpdate {
                     id: user.id.clone(),
-                    email: Some("new.email@example.com"),
+                    email: Some("new.email@example.com".to_string()),
                     password: None,
                     now
                 },

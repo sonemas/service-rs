@@ -50,8 +50,8 @@ impl Error for UserLogicError {}
 /// Uses options to indicate which fields are updated.
 pub struct UserUpdate {
     pub id: Id,
-    pub email: Option<&'static str>,
-    pub password: Option<&'static str>,
+    pub email: Option<String>,
+    pub password: Option<String>,
     pub now: DateTime<Utc>,
 }
 
@@ -76,7 +76,7 @@ pub trait UserLogic {
     fn read_by_email(&self, session: &Session<Signed>, email: &str) -> Result<User, UserLogicError>;
 
     /// Update a user with the provided data.
-    fn update(&self, session: &Session<Signed>, user_update: UserUpdate) -> Result<(), UserLogicError>;
+    fn update(&self, session: &Session<Signed>, user_update: UserUpdate) -> Result<User, UserLogicError>;
 
     /// Delete a user from the service.
     fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), UserLogicError>;

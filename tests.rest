@@ -17,6 +17,7 @@ Authorization: Basic admin@example.com:testtest
 @authToken = {{login.response.body.$.token}}
 
 ###
+# @name create
 
 POST http://127.0.0.1:3000/v1/user/register HTTP/1.1
 Content-Type: application/json
@@ -31,5 +32,29 @@ Authorization: Bearer {{authToken}}
 ###
 
 GET http://127.0.0.1:3000/v1/user HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+###
+@userID = {{create.response.body.$.id}}
+
+GET http://127.0.0.1:3000/v1/user/{{userID}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+###
+
+PUT http://127.0.0.1:3000/v1/user/{{userID}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+    "password": "newpassword",
+    "password_confirm": "newpassword"
+}
+
+###
+
+DELETE http://127.0.0.1:3000/v1/user/{{userID}} HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer {{authToken}}

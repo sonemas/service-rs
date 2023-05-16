@@ -1,7 +1,7 @@
-use actix_web::{get, post, put, delete, web::{Data, Json}, HttpRequest, HttpMessage};
+use actix_web::{get, post, put, delete, web::{Data, Json, Path, self}, HttpRequest, HttpMessage, Scope};
 use chrono::Utc;
 use jsonwebtoken::{encode, Header, EncodingKey};
-use libsvc::domain::user::{User, session::{Session, Signed}};
+use libsvc::domain::user::{User, session::{Session, Signed, Id}, logic::UserUpdate};
 use serde::{Deserialize, Serialize};
 
 use crate::{Store, rest::{api::ApiError, middleware::{jwt_auth::{TokenClaims, JwtMiddleware}, basic_auth::BasicAuthMiddleware}}};
@@ -14,18 +14,52 @@ pub struct CreateRequest {
 }
 
 // TODO: Request tracing containing now and tracing values.
-#[post("/v1/user")]
+#[post("/")]
 pub async fn post_create(store: Data<Store>, req: Json<CreateRequest>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<User>, ApiError> {
     let ext = raw.extensions();
     let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
     Ok(Json(store.user_logic.write()?.create(&session, &req.email, &req.password, Utc::now())?))
 }
 
-#[get("/v1/user")]
+#[get("/")]
 pub async fn get_read(store: Data<Store>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<Vec<User>>, ApiError> {
     let ext = raw.extensions();
     let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
     Ok(Json(store.user_logic.read()?.read(session)?))
+}
+
+#[get("/{id}")]
+pub async fn get_read_by_id(store: Data<Store>, path: Path<(Id,)>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<User>, ApiError> {
+    let ext = raw.extensions();
+    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
+    Ok(Json(store.user_logic.read()?.read_by_id(session, path.into_inner().0.into())?))
+}
+
+#[derive(Deserialize)]
+pub struct UpdateRequest {
+    email: Option<String>,
+    password: Option<String>,
+    password_confirm: Option<String>,
+}
+
+#[put("/{id}")]
+pub async fn put_update(store: Data<Store>, req: Json<UpdateRequest>, path: Path<(Id,)>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<User>, ApiError> {
+    let ext = raw.extensions();
+    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
+    let update = UserUpdate{
+        id: path.into_inner().0.into(),
+        email: req.email.clone(),
+        password: req.password.clone(),
+        now: Utc::now(),
+    };
+    Ok(Json(store.user_logic.write()?.update(session, update)?))
+}
+
+#[delete("/{id}")]
+pub async fn delete(store: Data<Store>, path: Path<(Id,)>, raw: HttpRequest,_: JwtMiddleware) -> Result<Json<()>, ApiError> {
+    let ext = raw.extensions();
+    let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
+    Ok(Json(store.user_logic.write()?.delete(session, path.into_inner().0.into())?))
 }
 
 #[derive(Deserialize)]
@@ -35,7 +69,7 @@ pub struct RegisterRequest {
     password_confirm: String,
 }
 
-#[post("/v1/user/register")]
+#[post("/register")]
 pub async fn post_register(store: Data<Store>, request: Json<RegisterRequest>) -> Result<Json<User>, ApiError> {
     Ok(Json(store.user_logic.write()?.register(&request.email, &request.password, Utc::now())?))
 }
@@ -43,7 +77,7 @@ pub async fn post_register(store: Data<Store>, request: Json<RegisterRequest>) -
 #[derive(Serialize)]
 pub struct AuthenticationResponse{token: String}
 
-#[get("/v1/user/authenticate")]
+#[get("/authenticate")]
 pub async fn get_authentication(store: Data<Store>, raw: HttpRequest,_: BasicAuthMiddleware) -> Result<Json<AuthenticationResponse>, ApiError> {
     let ext = raw.extensions();
     let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
@@ -77,3 +111,14 @@ pub async fn get_authentication(store: Data<Store>, raw: HttpRequest,_: BasicAut
 //     let session = ext.get::<Session<Signed>>().expect("Couldn't get session");
 //     Ok(Json(session.user_id()))
 // }
+
+pub fn scope() -> Scope {
+    web::scope("/users")
+    .service(post_register)
+    .service(get_authentication)
+    .service(post_create)
+    .service(get_read)
+    .service(get_read_by_id)
+    .service(put_update)
+    .service(delete)
+}

@@ -1,2 +1,14 @@
 - [JWT tokens and warp](https://stackoverflow.com/questions/54988438/how-to-check-the-authorization-header-using-warp)
 - [JWT tokens and actix](https://codevoweb.com/rust-jwt-authentication-with-actix-web/)
+
+- [Rust circle CI](https://circleci.com/blog/rust-cd/)
+- [Rust CI](https://doc.rust-lang.org/cargo/guide/continuous-integration.html)
+- [Deploy to Kubernetes on Azure](https://learn.microsoft.com/en-us/azure/aks/kubernetes-action)
+
+- [Rust features](https://doc.rust-lang.org/cargo/reference/features.html)
+- [Rust async tests](https://rust-lang.github.io/async-book/09_example/03_tests.html)
+- [Actix web tutorial](https://www.youtube.com/watch?v=L8tWKqSMKUI)
+- [SurrealDB tutorial](https://www.youtube.com/watch?v=DPQbuW9dQ7w)
+- [Actix documentation](https://actix.rs/docs)
+- [Actix examples](https://github.com/actix/examples)
+- [Microservices in Rust with Actix](https://medium.com/digitalfrontiers/microservices-in-rust-with-actix-a61bb62fee80)

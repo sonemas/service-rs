@@ -15,6 +15,7 @@ pub mod session;
 pub struct User {
     id: Id,
     email: String,
+    #[serde(skip_serializing)]
     password: String,
     date_created: DateTime<Utc>,
     date_updated: DateTime<Utc>,

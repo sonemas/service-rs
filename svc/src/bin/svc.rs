@@ -2,7 +2,7 @@ use std::{sync::{Arc, RwLock}};
 use actix_cors::Cors;
 use libsvc::domain::user::{service::UserService, session::{manager::SessionManager}, repository::memory::Memory};
 use actix_web::{HttpServer, App, web::Data, middleware::Logger, http::header};
-use svc::{Store, rest::v1::user_handlers};
+use svc::{Store, rest::v1};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -29,10 +29,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(logger)
             .wrap(cors)
             .app_data(Data::new(store.clone()))
-            .service(user_handlers::post_register)
-            .service(user_handlers::get_authentication)
-            .service(user_handlers::post_create)
-            .service(user_handlers::get_read)
+            .service(v1::api())
     })
     .bind(("0.0.0.0", 3000))?
     .run()
