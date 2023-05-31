@@ -1,3 +1,4 @@
+[ ] Configuration
 [ ] Basic web framework
 [ ] Telemetry
 [ ] Pipeline
