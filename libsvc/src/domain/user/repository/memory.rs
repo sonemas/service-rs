@@ -181,8 +181,9 @@ mod test {
         );
 
         assert!(store.delete(Id::from("1234")).is_ok());
-        assert!(store
-            .read_by_id(Id::from("1234"))
-            .is_err_and(|err| err == UserRepositoryError::NotFound));
+        assert!(matches!(
+            store.read_by_id(Id::from("1245")), 
+            Err(err) if err == UserRepositoryError::NotFound)
+        );
     }
 }

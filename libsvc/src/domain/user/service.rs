@@ -161,9 +161,10 @@ mod test {
         );
 
         assert!(service.delete(&session, user.id.clone()).is_ok());
-        assert!(service
-            .read_by_id(&session, user.id.clone())
-            .is_err_and(|err| err == UserLogicError::UserRepositoryError(UserRepositoryError::NotFound)));
+        assert!(matches!(
+            service.read_by_id(&session, user.id.clone()), 
+            Err(err) if err == UserLogicError::UserRepositoryError(UserRepositoryError::NotFound))
+        );
     }
 
     #[test]
@@ -175,11 +176,12 @@ mod test {
         service.register("test@example.com", "password", now).expect("Should be able to register");
 
         assert!(service.authenticate("test@example.com", "password").is_ok());
-        assert!(service
-            .authenticate("bla@example.com", "password")
-            .is_err_and(|err| err == UserLogicError::UserRepositoryError(UserRepositoryError::NotFound)));
-        assert!(service
-            .authenticate("test@example.com", "bla")
-            .is_err_and(|err| err == UserLogicError::Unauthorized));
+        
+        assert!(matches!(
+            service.authenticate("bla@example.com", "password"),
+            Err(err) if err == UserLogicError::UserRepositoryError(UserRepositoryError::NotFound)));
+        assert!(matches!(
+            service.authenticate("test@example.com", "bla"),
+            Err(err) if err == UserLogicError::Unauthorized));
     }
 }

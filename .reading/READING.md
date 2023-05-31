@@ -14,3 +14,4 @@
 - [Microservices in Rust with Actix](https://medium.com/digitalfrontiers/microservices-in-rust-with-actix-a61bb62fee80)
 - [Include git version in Rust program](https://stackoverflow.com/questions/43753491/include-git-commit-hash-as-string-into-rust-program)
 - [Pprof](https://docs.rs/pprof/latest/pprof/)
+- [Zero to production in Rust](https://www.zero2prod.com/)
