@@ -121,7 +121,7 @@ impl SessionBuilder {
     }
 
     /// Builds a session based upon the builder's configuration.
-    pub fn build(self) -> Session<Unsigned> {
+    pub fn finish(self) -> Session<Unsigned> {
         // If user_id is empty here then shit really hit the fan, thus it's only fair to panic.
         assert!(!self.user_id.is_empty());
 
@@ -173,31 +173,38 @@ impl Session<Unsigned> {
     /// use libsvc::domain::user::session::Session;
     /// use chrono::{Utc, Duration};
     ///
-    /// let _session = Session::new("1234")
+    /// let _session = Session::build("1234")
     ///     .with_issuer("Sonemas LLC")
     ///     .with_id("9876".into())
     ///     .with_duration(Duration::hours(2))
     ///     .issued_at(Utc::now())
-    ///     .build();
+    ///     .finish();
     /// ```
-    pub fn new(user_id: &str) -> SessionBuilder {
+    pub fn build(user_id: &str) -> SessionBuilder {
         SessionBuilder {
             user_id: user_id.to_string(),
             ..Default::default()
         }
     }
 
-    pub fn restore(id: Id, user_id: String, issuer: &str, issued_at: DateTime<Utc>, expires_at: DateTime<Utc>, signature: &[u8]) -> Session<Signed> {
+    pub fn restore(
+        id: Id,
+        user_id: String,
+        issuer: &str,
+        issued_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+        signature: &[u8],
+    ) -> Session<Signed> {
         let sign_state = Signed {
             signature: signature.to_owned(),
         };
-        Session{
+        Session {
             id,
             user_id,
-            issuer: issuer.to_string(), 
+            issuer: issuer.to_string(),
             issued_at,
             expires_at,
-            sign_state
+            sign_state,
         }
     }
 
@@ -253,28 +260,57 @@ impl Session<Signed> {
             && Utc::now() >= self.issued_at
     }
 
-    pub fn id(&self) -> Id { self.id.clone() }
-    pub fn issued_at(&self) -> DateTime<Utc> { self.issued_at }
-    pub fn expires_at(&self) -> DateTime<Utc> { self.expires_at }
-    pub fn user_id(&self) -> String { self.user_id.clone() }
-    pub fn issuer(&self) -> String { self.issuer.clone() }
+    pub fn id(&self) -> Id {
+        self.id.clone()
+    }
+    pub fn issued_at(&self) -> DateTime<Utc> {
+        self.issued_at
+    }
+    pub fn expires_at(&self) -> DateTime<Utc> {
+        self.expires_at
+    }
+    pub fn user_id(&self) -> String {
+        self.user_id.clone()
+    }
+    pub fn issuer(&self) -> String {
+        self.issuer.clone()
+    }
 }
 
 impl Clone for Session<Signed> {
     fn clone(&self) -> Self {
-        Self { id: self.id.clone(), user_id: self.user_id.clone(), issuer: self.issuer.clone(), issued_at: self.issued_at.clone(), expires_at: self.expires_at.clone(), sign_state: self.sign_state.clone() }
+        Self {
+            id: self.id.clone(),
+            user_id: self.user_id.clone(),
+            issuer: self.issuer.clone(),
+            issued_at: self.issued_at,
+            expires_at: self.expires_at,
+            sign_state: self.sign_state.clone(),
+        }
     }
 }
 
 impl PartialEq for Session<Signed> {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.user_id == other.user_id && self.issuer == other.issuer && self.issued_at == other.issued_at && self.expires_at == other.expires_at && self.sign_state == other.sign_state
+        self.id == other.id
+            && self.user_id == other.user_id
+            && self.issuer == other.issuer
+            && self.issued_at == other.issued_at
+            && self.expires_at == other.expires_at
+            && self.sign_state == other.sign_state
     }
 }
 
 impl Debug for Session<Signed> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Session").field("id", &self.id).field("user_id", &self.user_id).field("issuer", &self.issuer).field("issued_at", &self.issued_at).field("expires_at", &self.expires_at).field("sign_state", &self.sign_state.signature).finish()
+        f.debug_struct("Session")
+            .field("id", &self.id)
+            .field("user_id", &self.user_id)
+            .field("issuer", &self.issuer)
+            .field("issued_at", &self.issued_at)
+            .field("expires_at", &self.expires_at)
+            .field("sign_state", &self.sign_state.signature)
+            .finish()
     }
 }
 
@@ -299,7 +335,7 @@ mod test {
 
     #[test]
     fn it_can_create_a_valid_session_with_defaults() {
-        let session = Session::new("0000").build();
+        let session = Session::build("0000").finish();
 
         assert_eq!(session.user_id, "0000");
         assert_eq!(session.is_expired(), false);
@@ -318,12 +354,12 @@ mod test {
         let duration = Duration::hours(2);
         let expires_at = issued_at.add(duration);
 
-        let session = Session::new(&user_id)
+        let session = Session::build(&user_id)
             .with_issuer(&issuer)
             .with_id(id.clone())
             .with_duration(duration)
             .issued_at(issued_at)
-            .build();
+            .finish();
 
         assert_eq!(session.id, id);
         assert_eq!(session.user_id, user_id);
@@ -341,7 +377,7 @@ mod test {
     fn it_can_detect_invalid_sessions() {
         let issued_at = Utc::now().sub(Duration::hours(2));
 
-        let session = Session::new("1234").issued_at(issued_at).build();
+        let session = Session::build("1234").issued_at(issued_at).finish();
 
         assert_eq!(session.is_expired(), true);
         assert_eq!(session.is_valid(), false);
@@ -353,11 +389,21 @@ mod test {
     #[test]
     fn it_can_restore_sessions() {
         let issued_at = Utc::now();
-        let orig_session = Session::new("1234").issued_at(issued_at).build().add_signature(b"test signature");
+        let orig_session = Session::build("1234")
+            .issued_at(issued_at)
+            .finish()
+            .add_signature(b"test signature");
         assert!(!orig_session.is_expired());
         assert!(orig_session.is_valid());
 
-        let session = Session::restore(orig_session.id.clone(), orig_session.user_id.clone(), &orig_session.issuer.clone(), orig_session.issued_at.clone(), orig_session.expires_at.clone(), &orig_session.sign_state.signature);
+        let session = Session::restore(
+            orig_session.id.clone(),
+            orig_session.user_id.clone(),
+            &orig_session.issuer.clone(),
+            orig_session.issued_at.clone(),
+            orig_session.expires_at.clone(),
+            &orig_session.sign_state.signature,
+        );
         assert_eq!(session, orig_session);
         assert!(!session.is_expired());
         assert!(session.is_valid());

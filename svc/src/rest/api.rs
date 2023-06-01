@@ -1,15 +1,16 @@
 use std::sync::PoisonError;
 
-use actix_web::{middleware::Logger, App, ResponseError, http::{StatusCode, header::ContentType}, web::Json, HttpResponse, body::BoxBody, dev::Response};
+use actix_web::{
+    http::{header::ContentType, StatusCode},
+    HttpResponse, ResponseError,
+};
 use libsvc::domain::user::{logic::UserLogicError, repository::UserRepositoryError};
 use serde::Serialize;
 use strum_macros::Display;
 
-use crate::Store;
-
 #[derive(Serialize)]
 pub struct ErrorResponse {
-    error: String
+    error: String,
 }
 
 #[derive(Debug, Display)]
@@ -33,8 +34,10 @@ impl ResponseError for ApiError {
     fn error_response(&self) -> HttpResponse {
         let body = match self {
             ApiError::Other(err) => ErrorResponse { error: err.clone() },
-            ApiError::InvalidRequest(err) => ErrorResponse { error: err.clone() }, 
-            _ => ErrorResponse{ error: self.to_string() }
+            ApiError::InvalidRequest(err) => ErrorResponse { error: err.clone() },
+            _ => ErrorResponse {
+                error: self.to_string(),
+            },
         };
 
         HttpResponse::build(self.status_code())
@@ -47,13 +50,13 @@ impl From<UserLogicError> for ApiError {
     fn from(value: UserLogicError) -> Self {
         match value {
             UserLogicError::Unauthorized => ApiError::Unauthorized,
-            UserLogicError::BcryptError(err) => ApiError::Other(err.to_string()),
-            UserLogicError::ValidationError(err) => ApiError::InvalidRequest(err.to_string()),
+            UserLogicError::ArgonError(err) => ApiError::Other(err),
+            UserLogicError::ValidationError(err) => ApiError::InvalidRequest(err),
             UserLogicError::UserRepositoryError(err) => match err {
                 UserRepositoryError::NotFound => ApiError::NotFound,
                 UserRepositoryError::DuplicateEmail => ApiError::InvalidRequest(err.to_string()),
                 UserRepositoryError::DuplicateID => ApiError::InvalidRequest(err.to_string()),
-                UserRepositoryError::Other(err) => ApiError::Other(err.to_string()),
+                UserRepositoryError::Other(err) => ApiError::Other(err),
             },
             UserLogicError::PoisonError(err) => ApiError::Other(err),
         }

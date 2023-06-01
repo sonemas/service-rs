@@ -1,10 +1,15 @@
 //! Provides a session manager with functionality to manage sessions.
-use std::{collections::HashMap, sync::{Mutex, PoisonError}, fmt::Display, error::Error};
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt::Display,
+    sync::{Mutex, PoisonError},
+};
 
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use rand::{distributions::Alphanumeric, Rng};
 
-use crate::foundation::key::{SigningKey, Key, KeyError};
+use crate::foundation::key::{Key, KeyError, SigningKey};
 
 use super::{Session, Signed};
 
@@ -116,13 +121,13 @@ impl SessionManager {
     /// use libsvc::domain::user::session::manager::SessionManager;
     /// use chrono::Duration;
     ///
-    /// let _session_manager = SessionManager::new()
+    /// let _session_manager = SessionManager::build()
     ///     .with_issuer("Sonemas LLC")
     ///     .with_session_duration(Duration::hours(2))
     ///     .with_nonce("9876abcd")
-    ///     .build();
+    ///     .finish();
     /// ```
-    pub fn new() -> SessionManagerBuilder {
+    pub fn build() -> SessionManagerBuilder {
         SessionManagerBuilder::default()
     }
 
@@ -137,7 +142,7 @@ impl SessionManager {
                 key.save(&self.key_file)?;
                 Ok(key)
             }
-        } 
+        }
     }
 
     // Helper function to create new sessions with or without a time of issuing.
@@ -147,7 +152,7 @@ impl SessionManager {
         issued_at: Option<DateTime<Utc>>,
     ) -> Result<Session<Signed>, SessionError> {
         // Get a session builder.
-        let mut builder = Session::new(user_id)
+        let mut builder = Session::build(user_id)
             .with_issuer(&self.issuer)
             .with_duration(self.session_duration);
 
@@ -157,7 +162,7 @@ impl SessionManager {
         }
 
         // Build the session.
-        let session = builder.build();
+        let session = builder.finish();
 
         // Sign the session.
         let payload = format! {"{}:{}", &session, self.nonce};
@@ -206,7 +211,10 @@ impl SessionManager {
         }
 
         let payload = format! {"{}:{}", &session, self.nonce};
-        if !self.get_signing_key()?.has_signed(payload.as_ref(), session.signature()) {
+        if !self
+            .get_signing_key()?
+            .has_signed(payload.as_ref(), session.signature())
+        {
             return Err(SessionError::InvalidSignature);
         }
 
@@ -256,7 +264,7 @@ impl SessionManagerBuilder {
     }
 
     /// Builds a session manager based upon the builder's configuration.
-    pub fn build(self) -> SessionManager {
+    pub fn finish(self) -> SessionManager {
         SessionManager {
             key_file: self.key_file,
             nonce: self.nonce,
@@ -274,7 +282,7 @@ mod test {
 
     #[test]
     fn it_can_create_a_valid_session_with_defaults() {
-        let session_manager = SessionManager::new().build();
+        let session_manager = SessionManager::build().finish();
         let session = session_manager
             .new_session("0000")
             .expect("should be able to create new session");
@@ -294,10 +302,10 @@ mod test {
         let duration = Duration::hours(2);
         let expires_at = issued_at.add(duration);
 
-        let session_manager = SessionManager::new()
+        let session_manager = SessionManager::build()
             .with_issuer(&issuer)
             .with_session_duration(duration)
-            .build();
+            .finish();
 
         let session = session_manager
             .new_session_with_issued_time(&user_id, issued_at)
@@ -315,7 +323,7 @@ mod test {
 
     #[test]
     fn it_can_verify_a_restored_session() {
-        let session_manager = SessionManager::new().build();
+        let session_manager = SessionManager::build().finish();
         let orig_session = session_manager
             .new_session("0000")
             .expect("should be able to create new session");
@@ -326,7 +334,14 @@ mod test {
         assert!(orig_session.is_signed());
         assert!(session_manager.verify_session(&orig_session).is_ok());
 
-        let session = Session::restore(orig_session.id, orig_session.user_id, &orig_session.issuer, orig_session.issued_at, orig_session.expires_at, &orig_session.sign_state.signature);
+        let session = Session::restore(
+            orig_session.id,
+            orig_session.user_id,
+            &orig_session.issuer,
+            orig_session.issued_at,
+            orig_session.expires_at,
+            &orig_session.sign_state.signature,
+        );
         assert!(!session.is_expired());
         assert!(session.is_valid());
         assert!(session_manager.verify_session(&session).is_ok());

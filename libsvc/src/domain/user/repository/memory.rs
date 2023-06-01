@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{foundation::id::Id, domain::user::User};
+use crate::{domain::user::User, foundation::id::Id};
 
 use super::{UserRepository, UserRepositoryError};
 
@@ -157,33 +157,47 @@ mod test {
     fn it_can_crud() {
         let store = Memory::new();
         let now = Utc::now();
-        let user = User::new(Id::from("1234"), "test@example.com", "password", now).expect("Should be able to create new user");
+        let user = User::new(Id::from("1234"), "test@example.com", "password", now)
+            .expect("Should be able to create new user");
 
         assert!(store.create(&user).is_ok());
 
-        assert_eq!(store.read_by_id(Id::from("1234")).expect("Should be able to read by id"), user.clone());
         assert_eq!(
-            store.read_by_email("test@example.com").expect("Should be able to read by email"),
+            store
+                .read_by_id(Id::from("1234"))
+                .expect("Should be able to read by id"),
             user.clone()
         );
-        assert_eq!(store.read().expect("shoudl be able to read"), vec![user.clone()]);
+        assert_eq!(
+            store
+                .read_by_email("test@example.com")
+                .expect("Should be able to read by email"),
+            user.clone()
+        );
+        assert_eq!(
+            store.read().expect("shoudl be able to read"),
+            vec![user.clone()]
+        );
 
         let mut update_user = user.clone();
         update_user.email = "new.email@example.com".to_string();
         assert!(store.update(&update_user).is_ok());
         assert_eq!(
-            store.read_by_id(Id::from("1234")).expect("should be able to read by id"),
+            store
+                .read_by_id(Id::from("1234"))
+                .expect("should be able to read by id"),
             update_user.clone()
         );
         assert_eq!(
-            store.read_by_email("new.email@example.com").expect("should be able to read by email"),
+            store
+                .read_by_email("new.email@example.com")
+                .expect("should be able to read by email"),
             update_user.clone()
         );
 
         assert!(store.delete(Id::from("1234")).is_ok());
         assert!(matches!(
             store.read_by_id(Id::from("1245")), 
-            Err(err) if err == UserRepositoryError::NotFound)
-        );
+            Err(err) if err == UserRepositoryError::NotFound));
     }
 }

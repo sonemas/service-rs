@@ -1,0 +1,7 @@
+server:
+  api_port: 3000
+  debug_port: 3999
+  host: 0.0.0.0
+authentication:
+  jwt_seed: "jKqj5mt0eTRUDtojFXQryv8NObjhvbGfyXK4DaowZHjeIvPyfNjQmEprWTrZ2q1XxB0ojwhypnXSAVAOEaP7Ip8NXKt5RzosVTy4sR6QYoH4MJj4MLfJvAcbErN5FIscPhPdEemyAVy2bC6iJzSZp6PLhBIf90NatFosEtBu0ANK6oISITpnYzohCd2GCcPMz1Itmi9IKZf6jLd9RkmGkj12pCcblWx0zxzV1LFFdnBe8is6M84LJBhctpXBtGeO"
+  session_duration_ms: 3600000 # One hour

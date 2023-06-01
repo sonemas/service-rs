@@ -1,10 +1,13 @@
 use std::env;
 
-use actix_web::{get, web::{Data, Json, self}, Scope};
+use actix_web::{
+    get,
+    web::{self, Data, Json},
+    Scope,
+};
 use serde::Serialize;
 
-use crate::{rest::api::ApiError, Store};
-
+use crate::{rest::api::ApiError, store::Store};
 
 #[derive(Serialize)]
 pub struct ReadinessResponse {
@@ -13,7 +16,9 @@ pub struct ReadinessResponse {
 
 #[get("/readiness")]
 pub async fn readiness(_store: Data<Store>) -> Result<Json<ReadinessResponse>, ApiError> {
-    Ok(Json(ReadinessResponse{status: "ok".to_string()}))
+    Ok(Json(ReadinessResponse {
+        status: "ok".to_string(),
+    }))
 }
 
 #[derive(Serialize)]
@@ -45,9 +50,9 @@ pub async fn liveness(_store: Data<Store>) -> Result<Json<LivenessReponse>, ApiE
     let node = env::var("KUBERNETES_NODE_NAME").ok();
     let namespace = env::var("KUBERNETES_NAMESPACE").ok();
 
-    Ok(Json(LivenessReponse{
+    Ok(Json(LivenessReponse {
         status: "ok".to_string(),
-        version: version.to_string(),
+        version,
         hostname,
         name,
         pod_ip,
@@ -57,7 +62,5 @@ pub async fn liveness(_store: Data<Store>) -> Result<Json<LivenessReponse>, ApiE
 }
 
 pub fn api() -> Scope {
-    web::scope("/debug")
-        .service(readiness)
-        .service(liveness)
+    web::scope("/debug").service(readiness).service(liveness)
 }

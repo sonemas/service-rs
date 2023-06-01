@@ -1,23 +1,26 @@
-use bcrypt::BcryptError;
 use chrono::{DateTime, Utc};
 use std::{error::Error, fmt::Display, sync::PoisonError};
 
 use crate::foundation::id::Id;
 
-use super::{repository::UserRepositoryError, session::{Session, Signed}, User};
+use super::{
+    repository::UserRepositoryError,
+    session::{Session, Signed},
+    User,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum UserLogicError {
-    BcryptError(String),
+    ArgonError(String),
     PoisonError(String),
     ValidationError(String),
     UserRepositoryError(UserRepositoryError),
     Unauthorized,
 }
 
-impl From<BcryptError> for UserLogicError {
-    fn from(value: BcryptError) -> Self {
-        UserLogicError::BcryptError(format!("{}", value))
+impl From<argon2::password_hash::Error> for UserLogicError {
+    fn from(value: argon2::password_hash::Error) -> Self {
+        UserLogicError::ArgonError(format!("{}", value))
     }
 }
 
@@ -36,7 +39,7 @@ impl<T> From<PoisonError<T>> for UserLogicError {
 impl Display for UserLogicError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UserLogicError::BcryptError(err) => write!(f, "{}", err),
+            UserLogicError::ArgonError(err) => write!(f, "{}", err),
             UserLogicError::PoisonError(err) => write!(f, "{}", err),
             UserLogicError::ValidationError(err) => write!(f, "{}", err),
             UserLogicError::UserRepositoryError(err) => write!(f, "{}", err),
@@ -73,24 +76,30 @@ pub trait UserLogic {
     fn read_by_id(&self, session: &Session<Signed>, id: Id) -> Result<User, UserLogicError>;
 
     /// Read a single user by email.
-    fn read_by_email(&self, session: &Session<Signed>, email: &str) -> Result<User, UserLogicError>;
+    fn read_by_email(&self, session: &Session<Signed>, email: &str)
+        -> Result<User, UserLogicError>;
 
     /// Update a user with the provided data.
-    fn update(&self, session: &Session<Signed>, user_update: UserUpdate) -> Result<User, UserLogicError>;
+    fn update(
+        &self,
+        session: &Session<Signed>,
+        user_update: UserUpdate,
+    ) -> Result<User, UserLogicError>;
 
     /// Delete a user from the service.
     fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), UserLogicError>;
 
     // TODO: Purge feature.
 
-    fn authenticate(
-        &self,
-        login: &str,
-        password: &str,
-    ) -> Result<Session<Signed>, UserLogicError>;
+    fn authenticate(&self, login: &str, password: &str) -> Result<Session<Signed>, UserLogicError>;
 
     fn is_valid_session(&self, session: &Session<Signed>) -> bool;
 
     #[cfg(feature = "registration")]
-    fn register(&self, email: &str, password: &str, now: DateTime<Utc>) -> Result<User, UserLogicError>;
+    fn register(
+        &self,
+        email: &str,
+        password: &str,
+        now: DateTime<Utc>,
+    ) -> Result<User, UserLogicError>;
 }
