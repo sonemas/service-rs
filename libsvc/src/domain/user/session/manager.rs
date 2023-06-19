@@ -2,7 +2,7 @@
 use std::{
     collections::HashMap,
     error::Error,
-    fmt::Display,
+    fmt::{Display, Debug},
     sync::{Mutex, PoisonError},
 };
 
@@ -11,7 +11,7 @@ use rand::{distributions::Alphanumeric, Rng};
 
 use crate::foundation::key::{Key, KeyError, SigningKey};
 
-use super::{Session, Signed};
+use super::session::{Session, Signed};
 
 // Returns a randomly generated nonce of the provided size.
 fn rand_nonce(len: usize) -> String {
@@ -78,21 +78,26 @@ pub struct SessionManager {
     issued_sessions: Mutex<HashMap<String, SessionData>>,
 }
 
-pub struct SessionManagerBuilder {
-    key_file: String,
-    nonce: String,
+pub trait Config {
+    type SigningKey: SigningKey;
+    type Nonce: Eq + Copy + Display + Debug;
+}
+
+pub struct SessionManagerBuilder<T: Config> {
+    // key_file: String,
+    nonce: T::Nonce,
     issuer: String,
     session_duration: Duration,
 }
 
-impl Default for SessionManagerBuilder {
+impl<T:Config> Default for SessionManagerBuilder<T> {
     fn default() -> Self {
-        let key_file = "key.der".to_string();
+        // let key_file = "key.der".to_string();
         let nonce = rand_nonce(30);
         let issuer = "auth service".to_string();
         let session_duration = Duration::hours(1);
         Self {
-            key_file,
+            // key_file,
             nonce,
             issuer,
             session_duration,
@@ -100,7 +105,7 @@ impl Default for SessionManagerBuilder {
     }
 }
 
-impl SessionManager {
+impl<T: Config> SessionManager {
     /// Returns a SessionManagerBuilder with default values.
     ///
     /// The default settings are:
@@ -127,23 +132,23 @@ impl SessionManager {
     ///     .with_nonce("9876abcd")
     ///     .finish();
     /// ```
-    pub fn build() -> SessionManagerBuilder {
+    pub fn build() -> SessionManagerBuilder<T> {
         SessionManagerBuilder::default()
     }
 
-    fn get_signing_key(&self) -> Result<impl SigningKey, KeyError> {
-        match std::path::Path::new(&self.key_file).exists() {
-            true => {
-                let key = Key::open(&self.key_file)?;
-                Ok(key)
-            }
-            false => {
-                let key = Key::new()?;
-                key.save(&self.key_file)?;
-                Ok(key)
-            }
-        }
-    }
+    // fn get_signing_key(&self) -> Result<impl SigningKey, KeyError> {
+    //     match std::path::Path::new(&self.key_file).exists() {
+    //         true => {
+    //             let key = Key::open(&self.key_file)?;
+    //             Ok(key)
+    //         }
+    //         false => {
+    //             let key = Key::new()?;
+    //             key.save(&self.key_file)?;
+    //             Ok(key)
+    //         }
+    //     }
+    // }
 
     // Helper function to create new sessions with or without a time of issuing.
     fn _new_session(

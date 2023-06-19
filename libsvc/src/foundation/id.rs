@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
+#[cfg(feature = "serde")] #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Id(String);
 
 impl Id {

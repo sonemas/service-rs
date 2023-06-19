@@ -1,5 +1,8 @@
 - [JWT tokens and warp](https://stackoverflow.com/questions/54988438/how-to-check-the-authorization-header-using-warp)
 - [JWT tokens and actix](https://codevoweb.com/rust-jwt-authentication-with-actix-web/)
+- [RSA signed JWT tokens](https://stackoverflow.com/questions/60356941/rsa-key-pair-signing-and-verification-of-json-web-tokens)
+- [JWT pitfalls](https://blog.mathpresso.com/jwts-and-their-pitfalls-ffe8c9dba927)
+- [Owasp application security standard 4.0.3](https://github.com/OWASP/ASVS/blob/master/4.0/en/0x00-Header.md)
 
 - [Rust circle CI](https://circleci.com/blog/rust-cd/)
 - [Rust CI](https://doc.rust-lang.org/cargo/guide/continuous-integration.html)
@@ -15,3 +18,6 @@
 - [Include git version in Rust program](https://stackoverflow.com/questions/43753491/include-git-commit-hash-as-string-into-rust-program)
 - [Pprof](https://docs.rs/pprof/latest/pprof/)
 - [Zero to production in Rust](https://www.zero2prod.com/)
+
+- [Procedural macros](https://developerlife.com/2022/03/30/rust-proc-macro/)
+- [Validation](https://crates.io/crates/validator)

@@ -30,7 +30,7 @@ impl UserService {
 impl UserLogic for UserService {
     fn create(
         &self,
-        session: &Session<Signed>,
+        _session: &Session<Signed>,
         email: &str,
         password: &str,
         now: DateTime<Utc>,
@@ -41,13 +41,13 @@ impl UserLogic for UserService {
         Ok(user)
     }
 
-    fn read(&self, session: &Session<Signed>) -> Result<Vec<User>, UserLogicError> {
+    fn read(&self, _session: &Session<Signed>) -> Result<Vec<User>, UserLogicError> {
         // TODO: Authorization
         let users = self.repo.read()?.read()?;
         Ok(users)
     }
 
-    fn read_by_id(&self, session: &Session<Signed>, id: Id) -> Result<User, UserLogicError> {
+    fn read_by_id(&self, _session: &Session<Signed>, id: Id) -> Result<User, UserLogicError> {
         // TODO: Authorization
         let user = self.repo.read()?.read_by_id(id)?;
         Ok(user)
@@ -55,7 +55,7 @@ impl UserLogic for UserService {
 
     fn read_by_email(
         &self,
-        session: &Session<Signed>,
+        _session: &Session<Signed>,
         email: &str,
     ) -> Result<User, UserLogicError> {
         // TODO: Authorization
@@ -65,7 +65,7 @@ impl UserLogic for UserService {
 
     fn update(
         &self,
-        session: &Session<Signed>,
+        _session: &Session<Signed>,
         user_update: UserUpdate,
     ) -> Result<User, UserLogicError> {
         // TODO: Authorization
@@ -81,7 +81,7 @@ impl UserLogic for UserService {
         Ok(user)
     }
 
-    fn delete(&self, session: &Session<Signed>, id: Id) -> Result<(), UserLogicError> {
+    fn delete(&self, _session: &Session<Signed>, id: Id) -> Result<(), UserLogicError> {
         // TODO: Authorization
         self.repo.write()?.delete(id)?;
         Ok(())
